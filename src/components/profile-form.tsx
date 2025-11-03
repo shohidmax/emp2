@@ -17,6 +17,7 @@ import { User, Mail, Lock } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { PasswordChangeForm } from './password-change-form';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -97,21 +98,7 @@ export function ProfileForm() {
         </form>
       </Form>
       <Separator />
-      <div>
-        <h3 className="text-lg font-medium">Change Password</h3>
-        <p className="text-sm text-muted-foreground mb-4">Update your password here.</p>
-        <div className="grid gap-4">
-            <div className="grid gap-2">
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
-            </div>
-             <div className="grid gap-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
-            </div>
-            <Button className="w-full md:w-auto">Update Password</Button>
-        </div>
-      </div>
+      <PasswordChangeForm />
     </div>
   );
 }
