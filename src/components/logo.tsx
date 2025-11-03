@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2" aria-label="AuthZen homepage">
+    <Link href="/" className="flex items-center gap-2" aria-label="EMS homepage">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="24"
@@ -18,7 +18,7 @@ export function Logo() {
       >
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
-      <span className="text-2xl font-bold tracking-tight text-foreground">AuthZen</span>
+      <span className="text-2xl font-bold tracking-tight text-foreground">EMS</span>
     </Link>
   );
 }

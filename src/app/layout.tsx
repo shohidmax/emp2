@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
-  title: 'AuthZen - Secure Authentication Platform',
-  description: 'A robust authentication system with email/password, Google Sign-In, and more.',
+  title: 'EMS - Environmental Monitoring System',
+  description: 'An Environmental Monitoring System by Max iT Solution.',
   icons: {
     icon: '/favicon.ico',
   },

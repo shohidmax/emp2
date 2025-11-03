@@ -4,25 +4,25 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Logo } from '@/components/logo';
-import { ShieldCheck, LogIn, UserPlus } from 'lucide-react';
+import { ShieldCheck, Cloud, Thermometer } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { motion } from 'framer-motion';
 
 const features = [
   {
+    icon: <Thermometer className="w-10 h-10 text-primary" />,
+    title: 'Real-time Monitoring',
+    description: 'Track key environmental metrics with high-precision sensors and live data streams.',
+  },
+  {
     icon: <ShieldCheck className="w-10 h-10 text-primary" />,
-    title: 'Secure by Default',
-    description: 'Robust email/password authentication and secure password recovery mechanisms.',
+    title: 'Data Security',
+    description: 'Your data is securely stored and accessible only to authorized personnel.',
   },
   {
-    icon: <svg role="img" viewBox="0 0 24 24" className="w-10 h-10 text-primary"><path fill="currentColor" d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.63-4.5 1.63-5.42 0-9.82-4.4-9.82-9.82s4.4-9.82 9.82-9.82c3.04 0 5.2.83 6.62 2.35l-2.32 2.32c-.86-.82-2-1.4-3.5-1.4-4.23 0-7.62 3.38-7.62 7.62s3.39 7.62 7.62 7.62c2.62 0 4.37-1.12 5.05-1.78.6-.6.98-1.54 1.12-2.8H12.48z"></path></svg>,
-    title: 'Social Sign-In',
-    description: 'Seamless integration with Google Sign-In for quick and easy access.',
-  },
-  {
-    icon: <UserPlus className="w-10 h-10 text-primary" />,
-    title: 'User Profiles',
-    description: 'Personalized user profiles to manage account information effortlessly.',
+    icon: <Cloud className="w-10 h-10 text-primary" />,
+    title: 'Cloud-Based',
+    description: 'Access your environmental data from anywhere in the world, at any time.',
   },
 ];
 
@@ -62,17 +62,17 @@ export default function Home() {
             className="flex flex-col items-center justify-center text-center"
           >
             <h1 className="text-4xl font-extrabold leading-tight tracking-tighter md:text-5xl lg:text-6xl xl:text-7xl">
-              Modern Authentication <br /> for your Next.js app.
+              Environmental Monitoring <br /> Made Simple.
             </h1>
             <p className="max-w-[700px] text-lg text-muted-foreground mt-6">
-              AuthZen provides a complete, secure, and beautiful authentication experience out of the box. Focus on your product, not on auth.
+              Our Environmental Monitoring System (EMS) provides a reliable platform for real-time data collection and analysis.
             </p>
             <div className="flex gap-4 mt-8">
               <Button asChild size="lg">
-                <Link href="/register">Get Started Free</Link>
+                <Link href="/register">Get Started</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/login">Learn More</Link>
+                <Link href="#features">Learn More</Link>
               </Button>
             </div>
           </motion.div>
@@ -83,7 +83,7 @@ export default function Home() {
             <div className="mx-auto flex max-w-5xl flex-col items-center space-y-4 text-center">
               <h2 className="font-bold text-3xl tracking-tighter sm:text-4xl md:text-5xl">Features</h2>
               <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                Everything you need for a complete authentication flow, designed for a world-class user experience.
+                Everything you need for comprehensive environmental monitoring, designed for accuracy and ease of use.
               </p>
             </div>
             <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-2 md:gap-12 lg:grid-cols-3 pt-16">
@@ -116,7 +116,7 @@ export default function Home() {
             <Logo />
           </div>
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            Built with ❤️ by Firebase Studio. © {new Date().getFullYear()}
+            Developed by Max iT Solution. © {new Date().getFullYear()}
           </p>
         </div>
       </footer>
