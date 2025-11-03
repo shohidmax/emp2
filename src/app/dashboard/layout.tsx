@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import {
   SidebarProvider,
@@ -20,16 +22,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Home, User, Settings, LogOut, PanelLeft } from 'lucide-react';
+import { Home, User, Settings, LogOut, PanelLeft, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useUser } from '@/hooks/use-user';
+import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Mock user data. In a real app, you'd get this from your auth provider.
-  const user = {
-    name: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    avatarUrl: 'https://picsum.photos/seed/avatar-jane/100/100',
+  const { user, isLoading } = useUser();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    // router.push('/login'); // This can cause a flicker, useUser hook handles redirection
+    return null;
+  }
+
+  const displayName = user.displayName || user.email || 'User';
+  const displayEmail = user.email || '';
+  const avatarFallback = displayName.substring(0, 2).toUpperCase();
 
   return (
     <SidebarProvider>
@@ -80,16 +104,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
                   <Avatar>
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
-                    <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={user.photoURL || undefined} alt={displayName} />
+                    <AvatarFallback>{avatarFallback}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <p className="text-sm font-medium leading-none">{displayName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{displayEmail}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -100,8 +124,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Link href="#"><Settings className="mr-2 h-4 w-4" />Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                   <Link href="/"><LogOut className="mr-2 h-4 w-4" />Logout</Link>
+                <DropdownMenuItem onClick={handleLogout}>
+                   <LogOut className="mr-2 h-4 w-4" />Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
