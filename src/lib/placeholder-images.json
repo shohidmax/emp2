@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "profile-avatar",
+      "description": "Placeholder avatar for user profile",
+      "imageUrl": "https://images.unsplash.com/photo-1702478629992-bd590033779d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cHJvZmlsZSUyMGF2YXRhcnxlbnwwfHx8fDE3NjIxNjI1Mzl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile avatar"
+    }
+  ]
 }
