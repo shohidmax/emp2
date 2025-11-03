@@ -10,7 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBwIwoj_CgR_lWhFDMlUqOFZFOFIzJu92Q",
   authDomain: "pran-pos.firebaseapp.com",
   projectId: "pran-pos",
-  storageBucket: "pran-pos.firebasestorage.app",
+  storageBucket: "pran-pos.appspot.com",
   messagingSenderId: "232805801170",
   appId: "1:232805801170:web:b2c1c82d95695c00b2e10b",
   measurementId: "G-11MCYPX70E"
