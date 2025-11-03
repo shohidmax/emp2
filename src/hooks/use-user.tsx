@@ -16,7 +16,7 @@ export function useUser() {
       setUser(user);
       setIsLoading(false);
 
-      const isAuthPage = pathname === '/login' || pathname === '/register';
+      const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/reset-password';
       const isDashboardPage = pathname.startsWith('/dashboard');
 
       if (user) {
@@ -25,7 +25,7 @@ export function useUser() {
           router.replace('/dashboard');
         }
       } else {
-        // If user is not logged in and on a dashboard page, redirect to login
+        // If user is not logged in and on a protected dashboard page, redirect to login
         if (isDashboardPage) {
           router.replace('/login');
         }
