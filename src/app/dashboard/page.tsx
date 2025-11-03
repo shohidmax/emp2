@@ -1,45 +1,149 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, LogIn, Activity, ShieldAlert } from "lucide-react";
+'use client';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TriangleAlert } from 'lucide-react';
+
+const API_URL = 'https://esp-web-server2.onrender.com/api/device/data';
+
+interface DeviceData {
+  uid: string;
+  temperature: number | null;
+  water_level: number;
+  rainfall: number;
+  timestamp: string;
+}
 
 export default function DashboardPage() {
-    const stats = [
-        { title: "Total Users", value: "1,257", icon: <Users className="h-6 w-6 text-muted-foreground" /> },
-        { title: "Active Now", value: "83", icon: <Activity className="h-6 w-6 text-muted-foreground" /> },
-        { title: "Logins (24h)", value: "431", icon: <LogIn className="h-6 w-6 text-muted-foreground" /> },
-        { title: "Failed Logins", value: "12", icon: <ShieldAlert className="h-6 w-6 text-muted-foreground" /> },
-    ];
-    return (
-        <div className="flex flex-col gap-6">
-            <div>
-                <h1 className="text-3xl font-bold">Welcome back!</h1>
-                <p className="text-muted-foreground">Here's a quick overview of your application's stats.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => (
-                    <Card key={stat.title}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {stat.title}
-                            </CardTitle>
-                            {stat.icon}
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                            <p className="text-xs text-muted-foreground">
-                                +20.1% from last month
-                            </p>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p>Activity feed will be displayed here.</p>
-                </CardContent>
-            </Card>
-        </div>
-    )
+  const [data, setData] = useState<DeviceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch(API_URL, { mode: 'cors', cache: 'no-cache' });
+      if (!response.ok) {
+        throw new Error(`Network response was not ok. Status: ${response.status}`);
+      }
+      const jsonData = await response.json();
+      const processedData = jsonData.map((d: any) => ({
+        ...d,
+        temperature: (d.temperature === 85 || typeof d.temperature !== 'number') ? null : d.temperature,
+        water_level: (typeof d.water_level !== 'number') ? 0 : d.water_level,
+        rainfall: (typeof d.rainfall !== 'number') ? 0 : d.rainfall,
+        timestamp: d.timestamp && !d.timestamp.startsWith('1970-') ? d.timestamp : null
+      })).filter((d: any) => d.timestamp);
+      
+      setData(processedData);
+      setError(null);
+    } catch (e: any) {
+      console.error('Failed to fetch data:', e);
+      setError('Failed to fetch live data. The server might be offline. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 60000); // Poll every 60 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const getLatestDataForDevices = (): DeviceData[] => {
+    const latestDataMap = new Map<string, DeviceData>();
+    data.forEach(device => {
+      if (!device.uid || !device.timestamp) return;
+      const existing = latestDataMap.get(device.uid);
+      if (!existing || new Date(device.timestamp) > new Date(existing.timestamp)) {
+        latestDataMap.set(device.uid, device);
+      }
+    });
+    return Array.from(latestDataMap.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
+  const latestUniqueDevices = getLatestDataForDevices();
+
+  const isDeviceOnline = (timestamp: string) => {
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    return new Date(timestamp) > twoMinutesAgo;
+  };
+  
+  const renderSkeletons = () => (
+    Array.from({ length: 4 }).map((_, index) => (
+      <Card key={index}>
+        <CardHeader>
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
+    ))
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-3xl font-bold">Live Environmental Dashboard</h1>
+        <p className="text-muted-foreground">Real-time sensor data from all active devices.</p>
+      </div>
+      
+      {error && (
+        <Alert variant="destructive">
+          <TriangleAlert className="h-4 w-4" />
+          <AlertTitle>Connection Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {loading ? renderSkeletons() : 
+          latestUniqueDevices.length > 0 ? (
+            latestUniqueDevices.map((device) => (
+              <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
+                <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
+                  <CardHeader className="relative">
+                    <div className={`absolute top-4 right-4 flex items-center gap-2 text-xs font-semibold ${isDeviceOnline(device.timestamp) ? 'text-green-500' : 'text-muted-foreground'}`}>
+                      <span className={`h-2 w-2 rounded-full ${isDeviceOnline(device.timestamp) ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></span>
+                      {isDeviceOnline(device.timestamp) ? 'Online' : 'Offline'}
+                    </div>
+                    <CardTitle className="text-primary pr-16">Device</CardTitle>
+                    <CardDescription className="font-mono text-xs">{device.uid}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                      <span className="font-medium text-sm">Temperature</span>
+                      <span className="text-xl font-bold text-amber-500">
+                        {device.temperature !== null ? `${device.temperature.toFixed(1)} °C` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                      <span className="font-medium text-sm">Water Level</span>
+                      <span className="text-xl font-bold text-sky-500">
+                        {device.water_level.toFixed(2)} m
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                      <span className="font-medium text-sm">Daily Rainfall</span>
+                      <span className="text-xl font-bold text-emerald-500">
+                        {device.rainfall.toFixed(2)} mm
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-2">Last updated: {new Date(device.timestamp).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
+          ) : (
+             !error && <p className="col-span-full text-center text-muted-foreground">No device data found.</p>
+          )}
+      </div>
+    </div>
+  );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   SidebarProvider,
   Sidebar,
@@ -22,12 +23,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Home, User, Settings, LogOut, PanelLeft, Loader2 } from 'lucide-react';
-import { Logo } from '@/components/logo';
+import { Home, User, Settings, LogOut, PanelLeft, Loader2, Sun, Moon } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import { useTheme } from 'next-themes';
+
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2" aria-label="EMS homepage">
+       <Image src="/logo.png" alt="Max iT Solution Logo" width={32} height={32} className="h-8 w-auto" />
+      <span className="text-2xl font-bold tracking-tight text-foreground">EMS</span>
+    </Link>
+  );
+}
+
+function ThemeToggle() {
+    const { theme, setTheme } = useTheme();
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        >
+            <Sun className="h-6 w-6 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-6 w-6 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+        </Button>
+    )
+}
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useUser();
@@ -47,7 +74,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!user) {
-    // router.push('/login'); // This can cause a flicker, useUser hook handles redirection
     return null;
   }
 
@@ -92,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </SidebarContent>
         </Sidebar>
         <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
             <SidebarTrigger className="md:hidden">
               <PanelLeft />
               <span className="sr-only">Toggle Menu</span>
@@ -100,6 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1">
               {/* Optional: Add Breadcrumbs or Page Title here */}
             </div>
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
