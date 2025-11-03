@@ -43,8 +43,7 @@ export default function Home() {
         <section className="container grid items-center gap-6 pb-8 pt-6 md:py-20">
           <div className="flex max-w-[980px] flex-col items-start gap-4">
             <h1 className="text-4xl font-extrabold leading-tight tracking-tighter md:text-5xl lg:text-6xl">
-              Modern Authentication <br className="hidden sm:inline" />
-              for your Next.js app.
+              Modern Authentication for your Next.js app.
             </h1>
             <p className="max-w-[700px] text-lg text-muted-foreground">
               AuthZen provides a complete, secure, and beautiful authentication experience out of the box. Focus on your product, not on auth.
@@ -88,7 +87,7 @@ export default function Home() {
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
             Built with ❤️ by Firebase Studio.
           </p>
-          <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
+          <p className="text-center text-sm leading-loose text-muted-foreground md:text-right">
             © {new Date().getFullYear()} AuthZen. All rights reserved.
           </p>
         </div>
