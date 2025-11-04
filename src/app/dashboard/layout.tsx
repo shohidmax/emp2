@@ -119,6 +119,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {/* Optional: Add Breadcrumbs or Page Title here */}
             </div>
             <ThemeToggle />
+            <Button variant="ghost" size="icon" asChild>
+                <Link href="/dashboard/profile">
+                    <User />
+                    <span className="sr-only">Profile</span>
+                </Link>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut />
+                <span className="sr-only">Logout</span>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
