@@ -54,28 +54,30 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="container grid items-center justify-center gap-8 pb-8 pt-16 text-center md:py-24 lg:py-32">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center"
-          >
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tighter md:text-5xl lg:text-6xl xl:text-7xl">
-              Environmental Monitoring <br /> Made Simple.
-            </h1>
-            <p className="max-w-[700px] text-lg text-muted-foreground mt-6">
-              Our Environmental Monitoring System (EMS) provides a reliable platform for real-time data collection and analysis.
-            </p>
-            <div className="flex gap-4 mt-8">
-              <Button asChild size="lg">
-                <Link href="/register">Get Started</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="#features">Learn More</Link>
-              </Button>
-            </div>
-          </motion.div>
+        <section className="w-full">
+          <div className="container flex flex-col items-center justify-center gap-8 pb-8 pt-16 text-center md:py-24 lg:py-32">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex flex-col items-center"
+            >
+              <h1 className="text-4xl font-extrabold leading-tight tracking-tighter md:text-5xl lg:text-6xl xl:text-7xl">
+                Environmental Monitoring <br /> Made Simple.
+              </h1>
+              <p className="max-w-[700px] text-lg text-muted-foreground mt-6">
+                Our Environmental Monitoring System (EMS) provides a reliable platform for real-time data collection and analysis.
+              </p>
+              <div className="flex gap-4 mt-8">
+                <Button asChild size="lg">
+                  <Link href="/register">Get Started</Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="#features">Learn More</Link>
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         </section>
 
         <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/40">
