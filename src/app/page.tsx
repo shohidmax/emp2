@@ -55,7 +55,7 @@ export default function Home() {
 
       <main className="flex-1">
         <section className="w-full">
-          <div className="container flex flex-col items-center justify-center gap-8 px-4 pb-8 pt-16 text-center md:py-24 lg:py-32">
+          <div className="container mx-auto flex flex-col items-center justify-center gap-8 px-4 pb-8 pt-16 text-center md:py-24 lg:py-32">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
