@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const API_URL = 'https://esp-web-server2.onrender.com/api/device/data';
 
@@ -20,6 +22,17 @@ export default function DashboardPage() {
   const [data, setData] = useState<DeviceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleCopy = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied to clipboard!',
+      description: `UID: ${text}`,
+    });
+  };
 
   const fetchData = async () => {
     try {
@@ -120,49 +133,63 @@ export default function DashboardPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {loading ? renderSkeletons() : 
-          latestUniqueDevices.length > 0 ? (
-            latestUniqueDevices.map((device) => (
-              <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
-                <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
-                  <CardHeader className="relative">
-                    <div className={`absolute top-4 right-4 flex items-center gap-2 text-xs font-semibold ${isDeviceOnline(device.timestamp) ? 'text-green-500' : 'text-muted-foreground'}`}>
-                      <span className={`h-2 w-2 rounded-full ${isDeviceOnline(device.timestamp) ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></span>
-                      {isDeviceOnline(device.timestamp) ? 'Online' : 'Offline'}
-                    </div>
-                    <CardTitle className="text-primary pr-16">Device</CardTitle>
-                    <CardDescription className="font-mono text-xs">{device.uid}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                      <span className="font-medium text-sm">Temperature</span>
-                      <span className="text-xl font-bold text-amber-500">
-                        {device.temperature !== null ? `${device.temperature.toFixed(1)} °C` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                      <span className="font-medium text-sm">Water Level</span>
-                      <span className="text-xl font-bold text-sky-500">
-                        {device.water_level.toFixed(2)} m
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                      <span className="font-medium text-sm">Daily Rainfall</span>
-                      <span className="text-xl font-bold text-emerald-500">
-                        {device.rainfall.toFixed(2)} mm
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pt-2">Last updated: {new Date(device.timestamp).toLocaleString()}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))
-          ) : (
-             !error && <p className="col-span-full text-center text-muted-foreground">No device data found.</p>
-          )}
-      </div>
+      <TooltipProvider>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {loading ? renderSkeletons() : 
+            latestUniqueDevices.length > 0 ? (
+              latestUniqueDevices.map((device) => (
+                <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
+                  <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
+                    <CardHeader className="relative">
+                      <div className={`absolute top-4 right-4 flex items-center gap-2 text-xs font-semibold ${isDeviceOnline(device.timestamp) ? 'text-green-500' : 'text-muted-foreground'}`}>
+                        <span className={`h-2 w-2 rounded-full ${isDeviceOnline(device.timestamp) ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></span>
+                        {isDeviceOnline(device.timestamp) ? 'Online' : 'Offline'}
+                      </div>
+                      <CardTitle className="text-primary pr-16">Device</CardTitle>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            onClick={(e) => handleCopy(e, device.uid)}
+                            className="inline-flex items-center gap-2 cursor-pointer"
+                          >
+                            <CardDescription className="font-mono text-xs">{device.uid}</CardDescription>
+                            <Copy className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Click to copy UID</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                        <span className="font-medium text-sm">Temperature</span>
+                        <span className="text-xl font-bold text-amber-500">
+                          {device.temperature !== null ? `${device.temperature.toFixed(1)} °C` : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                        <span className="font-medium text-sm">Water Level</span>
+                        <span className="text-xl font-bold text-sky-500">
+                          {device.water_level.toFixed(2)} m
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                        <span className="font-medium text-sm">Daily Rainfall</span>
+                        <span className="text-xl font-bold text-emerald-500">
+                          {device.rainfall.toFixed(2)} mm
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pt-2">Last updated: {new Date(device.timestamp).toLocaleString()}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))
+            ) : (
+              !error && <p className="col-span-full text-center text-muted-foreground">No device data found.</p>
+            )}
+        </div>
+      </TooltipProvider>
     </div>
   );
 }
