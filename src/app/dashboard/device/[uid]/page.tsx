@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 
 
-const API_URL_BASE = 'https://espserver3.onrender.com/api/device';
+const API_URL_BASE = 'https://espserver3.onrender.com/api';
 
 interface DeviceInfo {
   uid: string;
@@ -129,70 +129,25 @@ export default function DeviceDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activePieIndex, setActivePieIndex] = useState(0);
 
-  const filteredData = useMemo(() => {
-    if (!appliedStartDate && !appliedEndDate) {
-      return deviceHistory;
-    }
-    const start = appliedStartDate ? new Date(appliedStartDate).getTime() : -Infinity;
-    const end = appliedEndDate ? new Date(appliedEndDate).getTime() : Infinity;
-    
-    return deviceHistory.filter(d => {
-        const timestamp = new Date(d.timestamp).getTime();
-        return timestamp >= start && timestamp <= end;
-    });
-  }, [deviceHistory, appliedStartDate, appliedEndDate]);
-
-  const latestData = useMemo(() => {
-    if (filteredData.length === 0) return null;
-    return [...filteredData].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-  }, [filteredData]);
-
-
-  const pieChartData = useMemo(() => {
-    if (filteredData.length === 0) return [];
-    const validTempHistory = filteredData.filter(d => d.temperature !== null);
-    const tempSum = validTempHistory.reduce((sum, d) => sum + (d.temperature ?? 0), 0);
-    const waterSum = filteredData.reduce((sum, d) => sum + (d.water_level ?? 0), 0);
-    const rainSum = filteredData.reduce((sum, d) => sum + (d.rainfall ?? 0), 0);
-    const avgTemp = validTempHistory.length > 0 ? tempSum / validTempHistory.length : 0;
-    const avgWater = filteredData.length > 0 ? waterSum / filteredData.length : 0;
-    const avgRain = filteredData.length > 0 ? rainSum / filteredData.length : 0;
-
-    return [
-      { name: `Avg Temp`, value: Math.max(0.01, avgTemp), unit: '°C' },
-      { name: `Avg Water`, value: Math.max(0.01, avgWater), unit: 'm' },
-      { name: `Avg Rain`, value: Math.max(0.01, avgRain), unit: 'mm' },
-    ];
-  }, [filteredData]);
-  
-  const PIE_COLORS = ['#fbbf24', '#38bdf8', '#34d399'];
-
-
-  const fetchAllData = async () => {
+  const fetchDeviceHistory = useCallback(async (start?: string, end?: string) => {
+    if (!token || !uid) return;
     setLoading(true);
     setError(null);
-    if (!token) {
-        setLoading(false);
-        setError("Authentication token not found. Please log in again.");
-        return;
-    }
+    
     try {
         const headers = { 'Authorization': `Bearer ${token}` };
-
-        // Fetch device info
-        const infoResponse = await fetch(`${API_URL_BASE}/list`, { headers });
-        if (infoResponse.ok) {
-            const devices: DeviceInfo[] = await infoResponse.json();
-            const currentDevice = devices.find(d => d.uid === uid);
-            setDeviceInfo(currentDevice || null);
-            setEditingName(currentDevice?.name || '');
-            setEditingLocation(currentDevice?.location || '');
-        } else {
-            console.warn('Could not fetch device info');
+        let url = `${API_URL_BASE}/user/device/${uid}/data`;
+        
+        const queryParams = new URLSearchParams();
+        if (start) queryParams.append('start', start.split('T')[0]); // YYYY-MM-DD
+        if (end) queryParams.append('end', end.split('T')[0]); // YYYY-MM-DD
+        
+        const queryString = queryParams.toString();
+        if(queryString) {
+            url += `?${queryString}`;
         }
-
-        // Fetch device history
-        const historyResponse = await fetch(`${API_URL_BASE}/data?uid=${uid}&limit=1000`, { headers });
+        
+        const historyResponse = await fetch(url, { headers });
         if (!historyResponse.ok) throw new Error(`Failed to fetch device data. Status: ${historyResponse.status}`);
         
         const jsonData = await historyResponse.json();
@@ -205,21 +160,64 @@ export default function DeviceDetailsPage() {
         })).filter((d: any) => d.timestamp);
         
         setDeviceHistory(processedData);
-
     } catch (e: any) {
         console.error('Failed to fetch data:', e);
         setError('Failed to fetch device data. The server might be offline. Please try again later.');
     } finally {
         setLoading(false);
     }
-  };
+  }, [token, uid]);
 
+  const fetchDeviceInfo = useCallback(async () => {
+    if (!token || !uid) return;
+     try {
+        const headers = { 'Authorization': `Bearer ${token}` };
+        const infoResponse = await fetch(`${API_URL_BASE}/device/list`, { headers });
+        if (infoResponse.ok) {
+            const devices: DeviceInfo[] = await infoResponse.json();
+            const currentDevice = devices.find(d => d.uid === uid);
+            setDeviceInfo(currentDevice || null);
+            setEditingName(currentDevice?.name || '');
+            setEditingLocation(currentDevice?.location || '');
+        } else {
+            console.warn('Could not fetch device info');
+        }
+    } catch(e) {
+        console.warn('Could not fetch device info', e)
+    }
+  }, [token, uid]);
 
   useEffect(() => {
     if (token && uid) {
-        fetchAllData();
+        fetchDeviceInfo();
+        fetchDeviceHistory();
     }
-  }, [uid, token]);
+  }, [uid, token, fetchDeviceInfo, fetchDeviceHistory]);
+
+  const latestData = useMemo(() => {
+    if (deviceHistory.length === 0) return null;
+    return [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [deviceHistory]);
+
+  const pieChartData = useMemo(() => {
+    if (deviceHistory.length === 0) return [];
+    const validTempHistory = deviceHistory.filter(d => d.temperature !== null);
+    const tempSum = validTempHistory.reduce((sum, d) => sum + (d.temperature ?? 0), 0);
+    const waterSum = deviceHistory.reduce((sum, d) => sum + (d.water_level ?? 0), 0);
+    const rainSum = deviceHistory.reduce((sum, d) => sum + (d.rainfall ?? 0), 0);
+    const avgTemp = validTempHistory.length > 0 ? tempSum / validTempHistory.length : 0;
+    const avgWater = deviceHistory.length > 0 ? waterSum / deviceHistory.length : 0;
+    const avgRain = deviceHistory.length > 0 ? rainSum / deviceHistory.length : 0;
+
+    return [
+      { name: `Avg Temp`, value: Math.max(0.01, avgTemp), unit: '°C' },
+      { name: `Avg Water`, value: Math.max(0.01, avgWater), unit: 'm' },
+      { name: `Avg Rain`, value: Math.max(0.01, avgRain), unit: 'mm' },
+    ];
+  }, [deviceHistory]);
+  
+  const PIE_COLORS = ['#fbbf24', '#38bdf8', '#34d399'];
+
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -232,6 +230,7 @@ export default function DeviceDetailsPage() {
   const applyFilters = () => {
     setAppliedStartDate(startDate);
     setAppliedEndDate(endDate);
+    fetchDeviceHistory(startDate, endDate);
   };
 
   const resetFilters = () => {
@@ -239,13 +238,14 @@ export default function DeviceDetailsPage() {
     setEndDate('');
     setAppliedStartDate('');
     setAppliedEndDate('');
+    fetchDeviceHistory();
   };
 
   const handleSave = async () => {
     if (!token) return;
     setIsSaving(true);
     try {
-      const response = await fetch(`${API_URL_BASE}/${uid}`, {
+      const response = await fetch(`${API_URL_BASE}/device/${uid}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -361,7 +361,7 @@ export default function DeviceDetailsPage() {
 
     (pdf as any).autoTable({
         head: [['Timestamp', 'Temp (°C)', 'Water (m)', 'Rain (mm)']],
-        body: filteredData.map(d => [
+        body: deviceHistory.map(d => [
             new Date(d.timestamp).toLocaleString(),
             d.temperature !== null ? d.temperature.toFixed(1) : 'N/A',
             d.water_level.toFixed(2),
@@ -377,7 +377,7 @@ export default function DeviceDetailsPage() {
     setIsPdfLoading(false);
   };
   
-  if (loading) {
+  if (loading && deviceHistory.length === 0 && !error) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
@@ -394,7 +394,7 @@ export default function DeviceDetailsPage() {
     );
   }
 
-  if (!loading && deviceHistory.length === 0) {
+  if (!loading && deviceHistory.length === 0 && !error) {
     return (
         <div className="m-auto text-center">
             <Alert>
@@ -498,8 +498,8 @@ export default function DeviceDetailsPage() {
                 <Input id="end-date" type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-              <Button onClick={applyFilters}><Filter className="mr-2 h-4 w-4"/>Filter</Button>
-              <Button onClick={resetFilters} variant="ghost" className="w-full">Reset</Button>
+              <Button onClick={applyFilters} disabled={loading}><Filter className="mr-2 h-4 w-4"/>Filter</Button>
+              <Button onClick={resetFilters} variant="ghost" className="w-full" disabled={loading}>Reset</Button>
             </div>
           </div>
         </CardContent>
@@ -509,19 +509,21 @@ export default function DeviceDetailsPage() {
         <Card className="lg:col-span-3" id="line-chart-container">
           <CardHeader><CardTitle>Sensor History</CardTitle></CardHeader>
           <CardContent className="h-[400px] p-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={filteredData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis yAxisId="left" stroke="#fbbf24" label={{ value: '°C', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#38bdf8" label={{ value: 'm / mm', angle: -90, position: 'insideRight' }}/>
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="temperature" name="Temperature" stroke="#fbbf24" dot={false} connectNulls />
-                <Line yAxisId="right" type="monotone" dataKey="water_level" name="Water Level" stroke="#38bdf8" dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="rainfall" name="Rainfall" stroke="#34d399" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+             {loading ? <div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={deviceHistory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis yAxisId="left" stroke="#fbbf24" label={{ value: '°C', angle: -90, position: 'insideLeft' }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#38bdf8" label={{ value: 'm / mm', angle: -90, position: 'insideRight' }}/>
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="temperature" name="Temperature" stroke="#fbbf24" dot={false} connectNulls />
+                  <Line yAxisId="right" type="monotone" dataKey="water_level" name="Water Level" stroke="#38bdf8" dot={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="rainfall" name="Rainfall" stroke="#34d399" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+             )}
           </CardContent>
         </Card>
         <Card className="lg:col-span-2" id="pie-chart-container">
@@ -570,8 +572,8 @@ export default function DeviceDetailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.length > 0 ? (
-                  filteredData.map((d, i) => (
+                {deviceHistory.length > 0 ? (
+                  deviceHistory.map((d, i) => (
                     <TableRow key={i}>
                       <TableCell>{new Date(d.timestamp).toLocaleString()}</TableCell>
                       <TableCell className="text-center font-semibold text-amber-500">{d.temperature !== null ? d.temperature.toFixed(1) : 'N/A'}</TableCell>
@@ -600,3 +602,5 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
+
+    
