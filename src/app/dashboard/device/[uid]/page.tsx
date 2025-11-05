@@ -3,20 +3,31 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowLeft, Download, QrCode, Loader2, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Download, QrCode, Loader2, TriangleAlert, Edit, Save } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import html2canvas from 'html2canvas';
+import { useUser } from '@/hooks/use-user';
+import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 
 const API_URL_BASE = 'https://espserver3.onrender.com/api/device';
+
+interface DeviceInfo {
+  uid: string;
+  name: string | null;
+  location: string | null;
+  status: 'online' | 'offline' | 'unknown';
+  lastSeen: string | null;
+}
 
 interface DeviceData {
   uid: string;
@@ -47,7 +58,10 @@ export default function DeviceDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const uid = params.uid as string;
+  const { isAdmin, token } = useUser();
+  const { toast } = useToast();
 
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [deviceHistory, setDeviceHistory] = useState<DeviceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +70,13 @@ export default function DeviceDetailsPage() {
   const [endDate, setEndDate] = useState('');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  
+  // State for edit dialog
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [editingLocation, setEditingLocation] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const latestData = useMemo(() => {
     const sorted = [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -63,7 +84,6 @@ export default function DeviceDetailsPage() {
   }, [deviceHistory]);
 
   const filteredData = useMemo(() => {
-    // Data from API is now sorted by timestamp ASC
     return deviceHistory;
   }, [deviceHistory]);
 
@@ -91,24 +111,41 @@ export default function DeviceDetailsPage() {
     setLoading(true);
     setError(null);
     try {
-      let response;
+      if (!token) return;
+
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      // Fetch device info
+      const listResponse = await fetch(`${API_URL_BASE}/list`, { headers });
+      if (listResponse.ok) {
+        const devices: DeviceInfo[] = await listResponse.json();
+        const currentDevice = devices.find(d => d.uid === uid);
+        setDeviceInfo(currentDevice || null);
+        setEditingName(currentDevice?.name || '');
+        setEditingLocation(currentDevice?.location || '');
+      } else {
+        console.warn('Could not fetch device info');
+      }
+
+      // Fetch device history data
+      let historyResponse;
       let url;
-      let options: RequestInit = { mode: 'cors', cache: 'no-cache' };
+      let options: RequestInit = { headers, cache: 'no-cache' };
 
       if (start && end) {
         url = `${API_URL_BASE}/data-by-range`;
         options.method = 'POST';
-        options.headers = { 'Content-Type': 'application/json' };
+        options.headers = { ...options.headers, 'Content-Type': 'application/json' };
         options.body = JSON.stringify({ uid, start, end, limit: 10000 });
       } else {
         url = `${API_URL_BASE}/data?uid=${uid}&limit=1000`;
       }
       
-      response = await fetch(url, options);
+      historyResponse = await fetch(url, options);
 
-      if (!response.ok) throw new Error(`Network response was not ok. Status: ${response.status}`);
+      if (!historyResponse.ok) throw new Error(`Network response was not ok. Status: ${historyResponse.status}`);
       
-      const jsonData = await response.json();
+      const jsonData = await historyResponse.json();
       const processedData = jsonData.map((d: any) => ({
         ...d,
         temperature: (d.temperature === 85 || typeof d.temperature !== 'number') ? null : d.temperature,
@@ -128,8 +165,10 @@ export default function DeviceDetailsPage() {
 
 
   useEffect(() => {
-    fetchData();
-  }, [uid]);
+    if (token) {
+        fetchData();
+    }
+  }, [uid, token]);
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -151,6 +190,37 @@ export default function DeviceDetailsPage() {
     fetchData();
   };
 
+  const handleSave = async () => {
+    if (!token) return;
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API_URL_BASE}/${uid}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: editingName, location: editingLocation })
+      });
+      if (!response.ok) throw new Error('Failed to save device.');
+      
+      toast({ title: 'Success', description: 'Device updated successfully.' });
+      setIsEditDialogOpen(false);
+      // Refetch data to show updated name/location
+      if(deviceInfo) {
+        setDeviceInfo({
+            ...deviceInfo,
+            name: editingName,
+            location: editingLocation
+        });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const downloadPDF = async () => {
     setIsPdfLoading(true);
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -164,6 +234,14 @@ export default function DeviceDetailsPage() {
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'normal');
     pdf.text(`Device UID: ${uid}`, pdf.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
+     if (deviceInfo?.name) {
+        currentY += 6;
+        pdf.text(`Device Name: ${deviceInfo.name}`, pdf.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
+    }
+    if (deviceInfo?.location) {
+        currentY += 6;
+        pdf.text(`Location: ${deviceInfo.location}`, pdf.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
+    }
     currentY += 15;
 
     pdf.setFontSize(14);
@@ -281,27 +359,64 @@ export default function DeviceDetailsPage() {
 
   return (
     <div className="space-y-6">
+       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Device</DialogTitle>
+                <CardDescription>Update the name and location for this device.</CardDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input id="name" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="col-span-3" />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="location" className="text-right">Location</Label>
+                    <Input id="location" value={editingLocation} onChange={(e) => setEditingLocation(e.target.value)} className="col-span-3" />
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="ghost">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+
       <div className="flex justify-between items-center">
         <Button onClick={() => router.push('/dashboard/devices')} variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm"><QrCode className="mr-2 h-4 w-4" />Share / View on Phone</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Scan to view this device</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col items-center justify-center p-4">
-              {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />}
-              <p className="text-xs text-muted-foreground mt-2 break-all">{typeof window !== 'undefined' && window.location.href}</p>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+            {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit Device
+                </Button>
+            )}
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm"><QrCode className="mr-2 h-4 w-4" />Share</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                    <DialogTitle>Scan to view this device</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-4">
+                    {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />}
+                    <p className="text-xs text-muted-foreground mt-2 break-all">{typeof window !== 'undefined' && window.location.href}</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
       </div>
 
       <div>
-        <h1 className="text-3xl font-bold">Device Details</h1>
+        <h1 className="text-3xl font-bold">{deviceInfo?.name || 'Device Details'}</h1>
         <p className="text-muted-foreground font-mono">{uid}</p>
+        {deviceInfo?.location && <p className="text-muted-foreground text-sm">{deviceInfo.location}</p>}
       </div>
 
       <Card>
