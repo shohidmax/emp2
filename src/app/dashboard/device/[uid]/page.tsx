@@ -68,11 +68,15 @@ const renderActiveShape = (props: any) => {
     const ex = mx + (cos >= 0 ? 1 : -1) * 22;
     const ey = my;
     const textAnchor = cos >= 0 ? 'start' : 'end';
+    const name = payload.name.split('(')[0];
 
     return (
         <g>
-            <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} className="font-bold text-lg">
-                {payload.name.split('(')[0]}
+            <text x={cx} y={cy} dy={-10} textAnchor="middle" fill={fill} className="text-sm font-semibold">
+                {name}
+            </text>
+             <text x={cx} y={cy} dy={10} textAnchor="middle" fill="hsl(var(--foreground))" className="text-xl font-bold">
+                 {`${value.toFixed(1)}${payload.unit}`}
             </text>
             <Sector
                 cx={cx}
@@ -94,8 +98,8 @@ const renderActiveShape = (props: any) => {
             />
             <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
             <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="hsl(var(--foreground))">{`${value.toFixed(1)}${payload.unit}`}</text>
-            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="hsl(var(--muted-foreground))">
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="hsl(var(--foreground))" className="font-semibold">{`${value.toFixed(1)}${payload.unit}`}</text>
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="hsl(var(--muted-foreground))" className="text-sm">
                 {`(${(percent * 100).toFixed(2)}%)`}
             </text>
         </g>
