@@ -20,7 +20,7 @@ interface DeviceInfo {
   location: string | null;
   status: 'online' | 'offline' | 'unknown';
   lastSeen: string | null;
-  latestData?: {
+  data?: {
     temperature: number | null;
     water_level: number;
     rainfall: number;
@@ -190,7 +190,7 @@ export default function DeviceListPage() {
           {loading && devices.length === 0 ? renderSkeletons() : 
             sortedDevices.length > 0 ? (
               sortedDevices.map((device) => {
-                const latestData = device.latestData;
+                const latestData = device.data;
                 const isPinned = pinnedDevices.has(device.uid);
                 return (
                 <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">

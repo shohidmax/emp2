@@ -15,7 +15,7 @@ interface DeviceInfo {
   location: string | null;
   status: 'online' | 'offline' | 'unknown';
   lastSeen: string | null;
-  latestData?: {
+  data?: {
     temperature: number | null;
     water_level: number;
     rainfall: number;
@@ -69,10 +69,10 @@ export default function DashboardPage() {
     if (onlineDevices.length === 0) {
       return { avgTemp: null, avgWater: 0, avgRain: 0 };
     }
-    const validTemps = onlineDevices.map(d => d.latestData?.temperature).filter(t => t !== null && t !== undefined) as number[];
+    const validTemps = onlineDevices.map(d => d.data?.temperature).filter(t => t !== null && t !== undefined) as number[];
     const avgTemp = validTemps.length > 0 ? validTemps.reduce((a, b) => a + b, 0) / validTemps.length : null;
-    const avgWater = onlineDevices.reduce((a, b) => a + (b.latestData?.water_level || 0), 0) / onlineDevices.length;
-    const avgRain = onlineDevices.reduce((a, b) => a + (b.latestData?.rainfall || 0), 0) / onlineDevices.length;
+    const avgWater = onlineDevices.reduce((a, b) => a + (b.data?.water_level || 0), 0) / onlineDevices.length;
+    const avgRain = onlineDevices.reduce((a, b) => a + (b.data?.rainfall || 0), 0) / onlineDevices.length;
     return { avgTemp, avgWater, avgRain };
   }
 
@@ -186,7 +186,7 @@ export default function DashboardPage() {
                             <div className="flex-1">
                                 <p className="text-sm font-medium leading-none">Device <Link href={`/dashboard/device/${device.uid}`} className="font-mono text-primary text-xs hover:underline">{device.uid.substring(0, 12)}...</Link></p>
                                 <p className="text-sm text-muted-foreground">
-                                    {`Temp: ${device.latestData?.temperature !== null && device.latestData?.temperature !== undefined ? device.latestData.temperature.toFixed(1) + '°C' : 'N/A'}`}
+                                    {`Temp: ${device.data?.temperature !== null && device.data?.temperature !== undefined ? device.data.temperature.toFixed(1) + '°C' : 'N/A'}`}
                                 </p>
                             </div>
                             <div className="ml-auto font-medium text-sm">{device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : 'N/A'}</div>
