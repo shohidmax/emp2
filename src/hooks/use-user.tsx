@@ -64,7 +64,7 @@ export function useUser() {
 
   const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string | null) => {
     if (!tokenToVerify) {
-      logout();
+      logout(); // Also clears user state
       return false;
     }
     try {
@@ -74,7 +74,6 @@ export function useUser() {
         return false;
       }
       
-      setToken(tokenToVerify);
       const profileResponse = await fetch(`${API_URL}/profile`, {
           headers: { 'Authorization': `Bearer ${tokenToVerify}` }
       });
@@ -82,6 +81,7 @@ export function useUser() {
       if (profileResponse.ok) {
           const fullProfile: UserProfile = await profileResponse.json();
           setUser(fullProfile);
+          setToken(tokenToVerify);
           const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ADMIN_EMAIL;
           setIsAdmin(fullProfile.email === adminEmail || !!fullProfile.isAdmin);
           return true;
@@ -103,24 +103,33 @@ export function useUser() {
     const initializeUser = async () => {
         setIsLoading(true);
         const tokenFromStorage = localStorage.getItem('token');
-        const isValid = await verifyTokenAndSetUser(tokenFromStorage);
-
-        const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/reset-password';
-        const isDashboardPage = pathname.startsWith('/dashboard');
-
-        if (isValid) {
-        if (isAuthPage) {
-            router.replace('/dashboard');
-        }
-        } else {
-        if (isDashboardPage) {
-            router.replace('/login');
-        }
-        }
+        await verifyTokenAndSetUser(tokenFromStorage);
         setIsLoading(false);
     };
     initializeUser();
-  }, [pathname, router, verifyTokenAndSetUser]);
+  }, [verifyTokenAndSetUser]);
+  
+  useEffect(() => {
+    // This effect handles redirection and should only run when loading is finished.
+    if (isLoading) {
+      return;
+    }
+
+    const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/reset-password';
+    const isDashboardPage = pathname.startsWith('/dashboard');
+
+    if (user) {
+      // If user is logged in, redirect away from auth pages
+      if (isAuthPage) {
+        router.replace('/dashboard');
+      }
+    } else {
+      // If user is not logged in, redirect to login from protected pages
+      if (isDashboardPage) {
+        router.replace('/login');
+      }
+    }
+  }, [user, isLoading, pathname, router]);
 
 
   const login = async (email: string, password: string): Promise<boolean> => {
