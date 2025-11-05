@@ -5,8 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 const API_URL = 'https://espserver3.onrender.com/api/admin/report';
 
@@ -45,6 +48,7 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<ReportPeriod>('monthly');
   const [year, setYear] = useState<string>(new Date().getFullYear().toString());
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
   const availableYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
   const fetchData = async () => {
@@ -78,6 +82,56 @@ export default function AdminReportsPage() {
     ...d
   }));
 
+  const downloadReport = async () => {
+    setIsPdfLoading(true);
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    let currentY = 15;
+
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Aggregated Data Report', pdf.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
+    currentY += 10;
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Period: ${period.charAt(0).toUpperCase() + period.slice(1)} | Year: ${year}`, pdf.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
+    currentY += 15;
+
+    const chartEl = document.querySelector<HTMLElement>('#report-chart-container');
+    if (chartEl) {
+        const canvas = await html2canvas(chartEl, { backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgProps = pdf.getImageProperties(imgData);
+        const aspectRatio = imgProps.height / imgProps.width;
+        let imgWidth = pdf.internal.pageSize.getWidth() - 30;
+        let imgHeight = imgWidth * aspectRatio;
+
+        pdf.addImage(imgData, 'PNG', 15, currentY, imgWidth, imgHeight);
+        currentY += imgHeight + 10;
+    }
+
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Report Data Table', 15, currentY);
+    currentY += 8;
+
+    (pdf as any).autoTable({
+      head: [['Period', 'Avg Temp (°C)', 'Avg Rain (mm)', 'Data Points']],
+      body: data.map(d => [
+        d.date || d.month || d.year,
+        d.avgTemp.toFixed(2),
+        d.avgRain.toFixed(2),
+        d.count.toLocaleString()
+      ]),
+      startY: currentY,
+      theme: 'grid',
+      headStyles: { fillColor: [63, 81, 181] },
+      styles: { fontSize: 8 },
+    });
+
+    pdf.save(`EMS_Report_${period}_${year}.pdf`);
+    setIsPdfLoading(false);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -87,11 +141,11 @@ export default function AdminReportsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <CardTitle>Data Summary</CardTitle>
-            <div className="flex gap-4">
+            <div className="flex gap-2 sm:gap-4 flex-wrap">
               <Select value={period} onValueChange={(v) => setPeriod(v as ReportPeriod)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Select Period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -101,14 +155,18 @@ export default function AdminReportsPage() {
                 </SelectContent>
               </Select>
               <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full sm:w-[120px]">
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
-               <Button onClick={fetchData}>Refresh</Button>
+               <Button onClick={fetchData} className="w-full sm:w-auto">Refresh</Button>
+               <Button onClick={downloadReport} disabled={isPdfLoading} className="w-full sm:w-auto">
+                 {isPdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                 Download PDF
+               </Button>
             </div>
           </div>
           <CardDescription>Average temperature, rainfall, and data point counts.</CardDescription>
@@ -122,19 +180,21 @@ export default function AdminReportsPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
            ) : chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="left" orientation="left" stroke="#fbbf24" label={{ value: 'Avg Temp (°C)', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#34d399" label={{ value: 'Avg Rain (mm)', angle: -90, position: 'insideRight' }}/>
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Bar yAxisId="left" dataKey="avgTemp" name="Avg Temp" fill="#fbbf24" />
-                <Bar yAxisId="right" dataKey="avgRain" name="Avg Rain" fill="#34d399" />
-                <Bar yAxisId="left" dataKey="count" name="Data Points" fill="#8884d8" hide={true} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div id="report-chart-container">
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="left" orientation="left" stroke="#fbbf24" label={{ value: 'Avg Temp (°C)', angle: -90, position: 'insideLeft' }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#34d399" label={{ value: 'Avg Rain (mm)', angle: -90, position: 'insideRight' }}/>
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="avgTemp" name="Avg Temp" fill="#fbbf24" />
+                  <Bar yAxisId="right" dataKey="avgRain" name="Avg Rain" fill="#34d399" />
+                  <Bar yAxisId="left" dataKey="count" name="Data Points" fill="#8884d8" hide={true} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-[400px] text-muted-foreground">
               No data available for the selected period.
