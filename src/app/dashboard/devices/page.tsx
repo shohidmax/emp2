@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain, Pin } from 'lucide-react';
+import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain, Pin, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const API_URL = 'https://espserver3.onrender.com/api/device/list';
@@ -31,6 +32,7 @@ export default function DeviceListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pinnedDevices, setPinnedDevices] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const { token } = useUser();
 
@@ -85,7 +87,7 @@ export default function DeviceListPage() {
       setDevices(deviceList);
       setError(null);
 
-    } catch (e: any) {
+    } catch (e: any) => {
       console.error('Failed to fetch data:', e);
       setError('Failed to fetch live data. The server might be offline or an error occurred. Please try again later.');
     } finally {
@@ -100,20 +102,28 @@ export default function DeviceListPage() {
   }, [token]);
   
   const sortedDevices = useMemo(() => {
-      return [...devices].sort((a, b) => {
-        const aIsPinned = pinnedDevices.has(a.uid);
-        const bIsPinned = pinnedDevices.has(b.uid);
+      return [...devices]
+        .filter(device => {
+            if (!searchQuery) return true;
+            const searchLower = searchQuery.toLowerCase();
+            const nameMatch = device.name?.toLowerCase().includes(searchLower);
+            const uidMatch = device.uid.toLowerCase().includes(searchLower);
+            return nameMatch || uidMatch;
+        })
+        .sort((a, b) => {
+            const aIsPinned = pinnedDevices.has(a.uid);
+            const bIsPinned = pinnedDevices.has(b.uid);
 
-        if (aIsPinned && !bIsPinned) return -1;
-        if (!aIsPinned && bIsPinned) return 1;
+            if (aIsPinned && !bIsPinned) return -1;
+            if (!aIsPinned && bIsPinned) return 1;
 
-        // Fallback to sorting by lastSeen time if both are pinned or unpinned
-        if (b.lastSeen && a.lastSeen) {
-            return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
-        }
-        return 0;
-      });
-  }, [devices, pinnedDevices]);
+            // Fallback to sorting by lastSeen time if both are pinned or unpinned
+            if (b.lastSeen && a.lastSeen) {
+                return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
+            }
+            return 0;
+        });
+  }, [devices, pinnedDevices, searchQuery]);
 
 
   const onlineDevicesCount = devices.filter(device => device.status === 'online').length;
@@ -136,13 +146,24 @@ export default function DeviceListPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">Device List</h1>
-          <p className="text-muted-foreground">All registered environmental monitoring devices.</p>
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+            <h1 className="text-3xl font-bold">Device List</h1>
+            <p className="text-muted-foreground">All registered environmental monitoring devices.</p>
+            </div>
+             <div className="relative w-full md:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search by name or UID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
         </div>
+        
         {!loading && !error && (
-            <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg">
+            <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg self-start">
                 <div className="flex items-center gap-2 text-green-500 font-semibold">
                     <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -156,7 +177,6 @@ export default function DeviceListPage() {
                 </div>
             </div>
         )}
-      </div>
       
       {error && (
         <Alert variant="destructive">
@@ -233,7 +253,7 @@ export default function DeviceListPage() {
               )})
             ) : (
               !error && <div className="col-span-full text-center text-muted-foreground h-40 flex items-center justify-center">
-                <p>No devices found. <br /> You can add a device from your profile page.</p>
+                <p>{searchQuery ? `No devices found for "${searchQuery}".` : "No devices found. You can add a device from your profile page."}</p>
               </div>
             )}
         </div>
