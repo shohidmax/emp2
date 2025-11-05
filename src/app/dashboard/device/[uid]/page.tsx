@@ -14,7 +14,7 @@ import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-const API_URL = 'https://esp-web-server2.onrender.com/api/device/data';
+const API_URL = 'http://192.168.0.11:3005/api/device/data';
 
 interface DeviceData {
   uid: string;
@@ -98,7 +98,7 @@ export default function DeviceDetailsPage() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch(API_URL, { mode: 'cors', cache: 'no-cache' });
+      const response = await fetch(`${API_URL}?uid=${uid}`, { mode: 'cors', cache: 'no-cache' });
       if (!response.ok) throw new Error(`Network response was not ok. Status: ${response.status}`);
       const jsonData = await response.json();
       const processedData = jsonData.map((d: any) => ({
@@ -122,7 +122,7 @@ export default function DeviceDetailsPage() {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [uid]);
   
   useEffect(() => {
     QRCode.toDataURL(window.location.href)
@@ -425,3 +425,5 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
+
+    
