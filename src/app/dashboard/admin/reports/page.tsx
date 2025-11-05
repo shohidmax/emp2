@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -83,6 +84,10 @@ export default function AdminReportsPage() {
   }));
 
   const downloadReport = async () => {
+    if (data.length === 0) {
+      alert('No data available to generate a report.');
+      return;
+    }
     setIsPdfLoading(true);
     const pdf = new jsPDF('p', 'mm', 'a4');
     let currentY = 15;
@@ -98,15 +103,29 @@ export default function AdminReportsPage() {
 
     const chartEl = document.querySelector<HTMLElement>('#report-chart-container');
     if (chartEl) {
-        const canvas = await html2canvas(chartEl, { backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgProps = pdf.getImageProperties(imgData);
-        const aspectRatio = imgProps.height / imgProps.width;
-        let imgWidth = pdf.internal.pageSize.getWidth() - 30;
-        let imgHeight = imgWidth * aspectRatio;
+        try {
+            const canvas = await html2canvas(chartEl, { 
+                backgroundColor: '#ffffff',
+                scale: 2 // Increase scale for better resolution
+            });
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = pdf.getImageProperties(imgData);
+            const aspectRatio = imgProps.height / imgProps.width;
+            let imgWidth = pdf.internal.pageSize.getWidth() - 30; // 15mm margin on each side
+            let imgHeight = imgWidth * aspectRatio;
 
-        pdf.addImage(imgData, 'PNG', 15, currentY, imgWidth, imgHeight);
-        currentY += imgHeight + 10;
+            pdf.addImage(imgData, 'PNG', 15, currentY, imgWidth, imgHeight);
+            currentY += imgHeight + 10;
+        } catch (error) {
+            console.error("Error generating chart image:", error);
+            pdf.text("Could not generate chart image.", 15, currentY);
+            currentY += 10;
+        }
+    }
+
+    if (currentY > pdf.internal.pageSize.getHeight() - 40) { // Check if space is left for table
+        pdf.addPage();
+        currentY = 15;
     }
 
     pdf.setFontSize(14);
@@ -117,14 +136,14 @@ export default function AdminReportsPage() {
     (pdf as any).autoTable({
       head: [['Period', 'Avg Temp (°C)', 'Avg Rain (mm)', 'Data Points']],
       body: data.map(d => [
-        d.date || d.month || d.year,
+        d.date || d.month || d.year?.toString(),
         d.avgTemp.toFixed(2),
         d.avgRain.toFixed(2),
         d.count.toLocaleString()
       ]),
       startY: currentY,
       theme: 'grid',
-      headStyles: { fillColor: [63, 81, 181] },
+      headStyles: { fillColor: [37, 99, 235] }, // A blue header
       styles: { fontSize: 8 },
     });
 
@@ -163,7 +182,7 @@ export default function AdminReportsPage() {
                 </SelectContent>
               </Select>
                <Button onClick={fetchData} className="w-full sm:w-auto">Refresh</Button>
-               <Button onClick={downloadReport} disabled={isPdfLoading} className="w-full sm:w-auto">
+               <Button onClick={downloadReport} disabled={isPdfLoading || data.length === 0} className="w-full sm:w-auto">
                  {isPdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                  Download PDF
                </Button>
