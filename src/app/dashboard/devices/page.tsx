@@ -87,7 +87,7 @@ export default function DeviceListPage() {
       setDevices(deviceList);
       setError(null);
 
-    } catch (e: any) => {
+    } catch (e: any) {
       console.error('Failed to fetch data:', e);
       setError('Failed to fetch live data. The server might be offline or an error occurred. Please try again later.');
     } finally {
