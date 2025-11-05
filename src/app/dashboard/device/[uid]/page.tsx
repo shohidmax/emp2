@@ -126,15 +126,24 @@ export default function DeviceDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activePieIndex, setActivePieIndex] = useState(0);
 
+  const filteredData = useMemo(() => {
+    if (!startDate && !endDate) {
+      return deviceHistory;
+    }
+    const start = startDate ? new Date(startDate).getTime() : -Infinity;
+    const end = endDate ? new Date(endDate).getTime() : Infinity;
+    
+    return deviceHistory.filter(d => {
+        const timestamp = new Date(d.timestamp).getTime();
+        return timestamp >= start && timestamp <= end;
+    });
+}, [deviceHistory, startDate, endDate]);
 
   const latestData = useMemo(() => {
-    if (deviceHistory.length === 0) return null;
-    return [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-  }, [deviceHistory]);
+    if (filteredData.length === 0) return null;
+    return [...filteredData].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [filteredData]);
 
-  const filteredData = useMemo(() => {
-    return deviceHistory;
-  }, [deviceHistory]);
 
   const pieChartData = useMemo(() => {
     if (filteredData.length === 0) return [];
@@ -156,28 +165,32 @@ export default function DeviceDetailsPage() {
   const PIE_COLORS = ['#fbbf24', '#38bdf8', '#34d399'];
 
 
-  const fetchDeviceData = async (start?: string, end?: string) => {
+  const fetchAllData = async () => {
     setLoading(true);
     setError(null);
+    if (!token) {
+        setLoading(false);
+        setError("Authentication token not found. Please log in again.");
+        return;
+    }
     try {
-        if (!token) return;
-        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-        
-        let url;
-        let options: RequestInit = { headers, cache: 'no-cache' };
+        const headers = { 'Authorization': `Bearer ${token}` };
 
-        if (start && end) {
-            url = `${API_URL_BASE}/data-by-range`;
-            options.method = 'POST';
-            options.body = JSON.stringify({ uid, start, end, limit: 10000 });
+        // Fetch device info
+        const infoResponse = await fetch(`${API_URL_BASE}/list`, { headers });
+        if (infoResponse.ok) {
+            const devices: DeviceInfo[] = await infoResponse.json();
+            const currentDevice = devices.find(d => d.uid === uid);
+            setDeviceInfo(currentDevice || null);
+            setEditingName(currentDevice?.name || '');
+            setEditingLocation(currentDevice?.location || '');
         } else {
-            url = `${API_URL_BASE}/data?uid=${uid}&limit=1000`;
-            options.method = 'GET';
+            console.warn('Could not fetch device info');
         }
-        
-        const historyResponse = await fetch(url, options);
 
-        if (!historyResponse.ok) throw new Error(`Network response was not ok. Status: ${historyResponse.status}`);
+        // Fetch device history
+        const historyResponse = await fetch(`${API_URL_BASE}/data?uid=${uid}&limit=1000`, { headers });
+        if (!historyResponse.ok) throw new Error(`Failed to fetch device data. Status: ${historyResponse.status}`);
         
         const jsonData = await historyResponse.json();
         const processedData = jsonData.map((d: any) => ({
@@ -189,6 +202,7 @@ export default function DeviceDetailsPage() {
         })).filter((d: any) => d.timestamp);
         
         setDeviceHistory(processedData);
+
     } catch (e: any) {
         console.error('Failed to fetch data:', e);
         setError('Failed to fetch device data. The server might be offline. Please try again later.');
@@ -197,30 +211,10 @@ export default function DeviceDetailsPage() {
     }
   };
 
-  const fetchDeviceInfo = async () => {
-    if (!token) return;
-    try {
-        const headers = { 'Authorization': `Bearer ${token}` };
-        const listResponse = await fetch(`${API_URL_BASE}/list`, { headers });
-        if (listResponse.ok) {
-            const devices: DeviceInfo[] = await listResponse.json();
-            const currentDevice = devices.find(d => d.uid === uid);
-            setDeviceInfo(currentDevice || null);
-            setEditingName(currentDevice?.name || '');
-            setEditingLocation(currentDevice?.location || '');
-        } else {
-            console.warn('Could not fetch device info');
-        }
-    } catch(e) {
-        console.warn('Could not fetch device info', e)
-    }
-  }
-
 
   useEffect(() => {
-    if (token) {
-        fetchDeviceInfo();
-        fetchDeviceData();
+    if (token && uid) {
+        fetchAllData();
     }
   }, [uid, token]);
   
@@ -232,16 +226,9 @@ export default function DeviceDetailsPage() {
     }
   }, []);
   
-  const handleFilter = () => {
-    if (startDate && endDate) {
-      fetchDeviceData(startDate, endDate);
-    }
-  }
-
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
-    fetchDeviceData();
   };
 
   const handleSave = async () => {
@@ -305,9 +292,9 @@ export default function DeviceDetailsPage() {
     (pdf as any).autoTable({
         body: [
             ["Last Updated:", latestData ? new Date(latestData.timestamp).toLocaleString() : 'N/A'],
-            ["Latest Temperature:", latestData?.temperature !== null ? `${latestData?.temperature?.toFixed(1)} °C` : 'N/A'],
-            ["Latest Water Level:", `${latestData?.water_level?.toFixed(2)} m`],
-            ["Latest Rainfall:", `${latestData?.rainfall?.toFixed(2)} mm`],
+            ["Latest Temperature:", latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData?.temperature?.toFixed(1)} °C` : 'N/A'],
+            ["Latest Water Level:", latestData?.water_level !== undefined ? `${latestData?.water_level?.toFixed(2)} m` : 'N/A'],
+            ["Latest Rainfall:", latestData?.rainfall !== undefined ? `${latestData?.rainfall?.toFixed(2)} mm` : 'N/A'],
             ["Filter Start:", startDate ? new Date(startDate).toLocaleString() : 'All'],
             ["Filter End:", endDate ? new Date(endDate).toLocaleString() : 'All'],
         ],
@@ -380,7 +367,7 @@ export default function DeviceDetailsPage() {
     setIsPdfLoading(false);
   };
   
-  if (loading && deviceHistory.length === 0) {
+  if (loading) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
@@ -397,7 +384,7 @@ export default function DeviceDetailsPage() {
     );
   }
 
-  if (!latestData && !loading) {
+  if (!loading && deviceHistory.length === 0) {
     return (
         <div className="m-auto text-center">
             <Alert>
@@ -405,7 +392,7 @@ export default function DeviceDetailsPage() {
               <AlertTitle>No Data Found</AlertTitle>
               <AlertDescription>No historical data could be found for this device (UID: {uid}).</AlertDescription>
             </Alert>
-            <Button onClick={() => router.push('/dashboard/devices')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Button>
+            <Button onClick={() => router.push('/dashboard/devices')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
         </div>
     );
   }
@@ -501,7 +488,6 @@ export default function DeviceDetailsPage() {
                 <Input id="end-date" type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-              <Button onClick={handleFilter} className="w-full">Filter</Button>
               <Button onClick={resetFilters} variant="ghost" className="w-full">Reset</Button>
             </div>
           </div>
@@ -603,5 +589,7 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
+
+    
 
     
