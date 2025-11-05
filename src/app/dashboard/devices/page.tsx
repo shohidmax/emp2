@@ -4,14 +4,12 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Copy } from 'lucide-react';
+import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/use-user';
 
 const API_URL = 'https://espserver3.onrender.com/api/device/list';
-const API_DATA_URL = 'https://espserver3.onrender.com/api/device/data';
-
 
 interface DeviceInfo {
   uid: string;
@@ -19,21 +17,15 @@ interface DeviceInfo {
   location: string | null;
   status: 'online' | 'offline' | 'unknown';
   lastSeen: string | null;
+  latestData?: {
+    temperature: number | null;
+    water_level: number;
+    rainfall: number;
+  }
 }
-
-// Data from the old endpoint, to be merged
-interface DeviceData {
-  uid: string;
-  temperature: number | null;
-  water_level: number;
-  rainfall: number;
-  timestamp: string;
-}
-
 
 export default function DeviceListPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
-  const [deviceData, setDeviceData] = useState<DeviceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -51,38 +43,21 @@ export default function DeviceListPage() {
 
   const fetchData = async () => {
     if (!token) {
-        // Don't fetch if token isn't ready. The useUser hook will redirect if needed.
+        setLoading(false);
         return;
     }
+    setLoading(true);
     try {
-      const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-      };
-      // Fetch device list from the new endpoint
-      const listResponse = await fetch(API_URL, { headers });
-      if (!listResponse.ok) {
-        throw new Error(`Failed to fetch device list. Status: ${listResponse.status}`);
-      }
-      const deviceList: DeviceInfo[] = await listResponse.json();
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const response = await fetch(API_URL, { headers, cache: 'no-cache' });
       
-      // Fetch latest data from the old endpoint to get sensor readings
-      const dataResponse = await fetch(API_DATA_URL, { headers });
-       if (!dataResponse.ok) {
-        throw new Error(`Failed to fetch device sensor data. Status: ${dataResponse.status}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch device list. Status: ${response.status}`);
       }
-      const rawDeviceData: DeviceData[] = await dataResponse.json();
-
-      const processedData = rawDeviceData.map((d: any) => ({
-        ...d,
-        temperature: (d.temperature === 85 || typeof d.temperature !== 'number') ? null : d.temperature,
-        water_level: (typeof d.water_level !== 'number') ? 0 : d.water_level,
-        rainfall: (typeof d.rainfall !== 'number') ? 0 : d.rainfall,
-        timestamp: d.timestamp && !d.timestamp.startsWith('1970-') ? d.timestamp : null
-      })).filter((d: any) => d.timestamp);
-
-      setDevices(deviceList);
-      setDeviceData(processedData);
+      
+      const deviceList: DeviceInfo[] = await response.json();
+      
+      setDevices(deviceList.sort((a,b) => (b.lastSeen && a.lastSeen) ? new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime() : 0));
       setError(null);
 
     } catch (e: any) {
@@ -95,17 +70,9 @@ export default function DeviceListPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000); // Poll every 60 seconds
+    const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
     return () => clearInterval(interval);
   }, [token]);
-
-  const getLatestDataForDevice = (uid: string): Partial<DeviceData> => {
-    const deviceHistory = deviceData
-      .filter(d => d.uid === uid)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return deviceHistory.length > 0 ? deviceHistory[0] : {};
-  }
-
 
   const onlineDevicesCount = devices.filter(device => device.status === 'online').length;
   
@@ -158,10 +125,10 @@ export default function DeviceListPage() {
       )}
       <TooltipProvider>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {loading ? renderSkeletons() : 
+          {loading && devices.length === 0 ? renderSkeletons() : 
             devices.length > 0 ? (
               devices.map((device) => {
-                const latestData = getLatestDataForDevice(device.uid);
+                const latestData = device.latestData;
                 return (
                 <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
                   <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
@@ -185,25 +152,25 @@ export default function DeviceListPage() {
                           <p>Click to copy UID</p>
                         </TooltipContent>
                       </Tooltip>
-                       {device.location && <CardDescription className="text-xs">{device.location}</CardDescription>}
+                       {device.location && <CardDescription className="text-xs pt-1">{device.location}</CardDescription>}
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                        <span className="font-medium text-sm">Temperature</span>
+                       <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 font-medium text-sm"><Thermometer className="h-4 w-4 text-amber-500"/>Temperature</div>
                         <span className="text-xl font-bold text-amber-500">
-                          {latestData.temperature !== null && latestData.temperature !== undefined ? `${latestData.temperature.toFixed(1)} °C` : 'N/A'}
+                          {latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData.temperature.toFixed(1)} °C` : 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                        <span className="font-medium text-sm">Water Level</span>
+                        <div className="flex items-center gap-2 font-medium text-sm"><Droplets className="h-4 w-4 text-sky-500"/>Water Level</div>
                         <span className="text-xl font-bold text-sky-500">
-                          {latestData.water_level !== undefined ? `${latestData.water_level.toFixed(2)} m` : 'N/A'}
+                          {latestData?.water_level !== undefined ? `${latestData.water_level.toFixed(2)} m` : 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
-                        <span className="font-medium text-sm">Daily Rainfall</span>
+                         <div className="flex items-center gap-2 font-medium text-sm"><CloudRain className="h-4 w-4 text-emerald-500"/>Rainfall</div>
                         <span className="text-xl font-bold text-emerald-500">
-                          {latestData.rainfall !== undefined ? `${latestData.rainfall.toFixed(2)} mm` : 'N/A'}
+                          {latestData?.rainfall !== undefined ? `${latestData.rainfall.toFixed(2)} mm` : 'N/A'}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground pt-2">Last updated: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}</p>
@@ -212,7 +179,9 @@ export default function DeviceListPage() {
                 </Link>
               )})
             ) : (
-              !error && <p className="col-span-full text-center text-muted-foreground">No devices found.</p>
+              !error && <div className="col-span-full text-center text-muted-foreground h-40 flex items-center justify-center">
+                <p>No devices found. <br /> You can add a device from your profile page.</p>
+              </div>
             )}
         </div>
       </TooltipProvider>
