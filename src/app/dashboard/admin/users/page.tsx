@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,11 +38,20 @@ export default function AdminUserManagerPage() {
       const response = await fetch(`${API_BASE_URL}/admin/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
       if (!response.ok) {
         if (response.status === 403) throw new Error('Admin access required to view this page.');
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to fetch users: ${response.statusText}`);
+        
+        // Handle non-JSON responses gracefully
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Failed to fetch users: ${response.statusText}`);
+        } else {
+            throw new Error(`Server returned a non-JSON response. Status: ${response.status}`);
+        }
       }
+      
       const data = await response.json();
       setUsers(data.sort((a: UserData, b: UserData) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e: any) {
