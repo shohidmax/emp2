@@ -68,29 +68,42 @@ export function useUser() {
       if (decoded.exp * 1000 > Date.now()) {
         setToken(tokenToVerify);
 
-         const response = await fetch(`${API_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${tokenToVerify}` }
-        });
+        // Since the /profile endpoint doesn't exist, we construct the user from the token.
+        const profile: UserProfile = {
+            _id: decoded.userId,
+            name: decoded.name || decoded.email,
+            email: decoded.email,
+            // 'devices' and 'isAdmin' will be fetched separately if needed or assumed.
+            devices: [], // This will be updated by fetchUserProfile
+            createdAt: new Date(decoded.iat * 1000).toISOString(),
+        };
 
-        let profile: UserProfile;
-        if(response.ok) {
-            profile = await response.json();
-        } else {
-            // Fallback if /profile endpoint fails
-            profile = {
-                _id: decoded.userId,
-                name: decoded.name || decoded.email,
-                email: decoded.email,
-                devices: [],
-                createdAt: new Date(decoded.iat * 1000).toISOString(),
-            };
-        }
-        
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
-        const userIsAdmin = profile.email === adminEmail || !!profile.isAdmin;
-
+        
+        // We can't know if they are admin from the JWT alone.
+        // The backend `ensureAdmin` checks the DB. Here, we'll provisionally check the email.
+        const userIsAdminByEmail = profile.email === adminEmail;
+        
         setUser(profile);
-        setIsAdmin(userIsAdmin);
+        
+        // After setting basic info, try to get full profile from the backend
+        try {
+            const profileResponse = await fetch(`${API_URL}/profile`, {
+                headers: { 'Authorization': `Bearer ${tokenToVerify}` }
+            });
+            if (profileResponse.ok) {
+                const fullProfile: UserProfile = await profileResponse.json();
+                setUser(fullProfile); // Update user with full details
+                setIsAdmin(fullProfile.email === adminEmail || !!fullProfile.isAdmin);
+            } else {
+                // If profile endpoint fails, fall back to email check
+                setIsAdmin(userIsAdminByEmail);
+            }
+        } catch (e) {
+            // Network error, fall back to email check
+            setIsAdmin(userIsAdminByEmail);
+        }
+
         return true;
       }
     } catch (error) {
