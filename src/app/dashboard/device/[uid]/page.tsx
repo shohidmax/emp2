@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 import { ArrowLeft, Download, QrCode, Loader2, TriangleAlert, Edit, Save } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -41,16 +41,64 @@ const ChartTooltipContent = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="p-2 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg">
-        <p className="label text-sm font-bold">{new Date(label).toLocaleString()}</p>
+        <p className="label text-sm font-bold">{label || payload[0].name}</p>
         {payload.map((pld: any) => (
-          <p key={pld.dataKey} style={{ color: pld.color }} className="text-sm">
-            {`${pld.name}: ${pld.value.toFixed(2)}`}
+          <p key={pld.dataKey || pld.name} style={{ color: pld.fill || pld.color }} className="text-sm">
+            {pld.name.includes('(') ? `${pld.name}: ` : `${pld.name}: `}
+            {pld.value.toFixed(2)}
+            {pld.payload.unit}
           </p>
         ))}
       </div>
     );
   }
   return null;
+};
+
+const renderActiveShape = (props: any) => {
+    const RADIAN = Math.PI / 180;
+    const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+    const sin = Math.sin(-RADIAN * midAngle);
+    const cos = Math.cos(-RADIAN * midAngle);
+    const sx = cx + (outerRadius + 10) * cos;
+    const sy = cy + (outerRadius + 10) * sin;
+    const mx = cx + (outerRadius + 30) * cos;
+    const my = cy + (outerRadius + 30) * sin;
+    const ex = mx + (cos >= 0 ? 1 : -1) * 22;
+    const ey = my;
+    const textAnchor = cos >= 0 ? 'start' : 'end';
+
+    return (
+        <g>
+            <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} className="font-bold text-lg">
+                {payload.name.split('(')[0]}
+            </text>
+            <Sector
+                cx={cx}
+                cy={cy}
+                innerRadius={innerRadius}
+                outerRadius={outerRadius}
+                startAngle={startAngle}
+                endAngle={endAngle}
+                fill={fill}
+            />
+            <Sector
+                cx={cx}
+                cy={cy}
+                startAngle={startAngle}
+                endAngle={endAngle}
+                innerRadius={outerRadius + 6}
+                outerRadius={outerRadius + 10}
+                fill={fill}
+            />
+            <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+            <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="hsl(var(--foreground))">{`${value.toFixed(1)}${payload.unit}`}</text>
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="hsl(var(--muted-foreground))">
+                {`(${(percent * 100).toFixed(2)}%)`}
+            </text>
+        </g>
+    );
 };
 
 
@@ -71,11 +119,11 @@ export default function DeviceDetailsPage() {
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   
-  // State for edit dialog
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [editingLocation, setEditingLocation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [activePieIndex, setActivePieIndex] = useState(0);
 
 
   const latestData = useMemo(() => {
@@ -98,9 +146,9 @@ export default function DeviceDetailsPage() {
     const avgRain = filteredData.length > 0 ? rainSum / filteredData.length : 0;
 
     return [
-      { name: `Avg Temp (${avgTemp.toFixed(1)}°C)`, value: Math.max(0.01, avgTemp) },
-      { name: `Avg Water (${avgWater.toFixed(2)}m)`, value: Math.max(0.01, avgWater) },
-      { name: `Avg Rain (${avgRain.toFixed(2)}mm)`, value: Math.max(0.01, avgRain) },
+      { name: `Avg Temp`, value: Math.max(0.01, avgTemp), unit: '°C' },
+      { name: `Avg Water`, value: Math.max(0.01, avgWater), unit: 'm' },
+      { name: `Avg Rain`, value: Math.max(0.01, avgRain), unit: 'mm' },
     ];
   }, [filteredData]);
   
@@ -115,7 +163,6 @@ export default function DeviceDetailsPage() {
 
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      // Fetch device info
       const listResponse = await fetch(`${API_URL_BASE}/list`, { headers });
       if (listResponse.ok) {
         const devices: DeviceInfo[] = await listResponse.json();
@@ -127,7 +174,6 @@ export default function DeviceDetailsPage() {
         console.warn('Could not fetch device info');
       }
 
-      // Fetch device history data
       let historyResponse;
       let url;
       let options: RequestInit = { headers, cache: 'no-cache' };
@@ -206,7 +252,6 @@ export default function DeviceDetailsPage() {
       
       toast({ title: 'Success', description: 'Device updated successfully.' });
       setIsEditDialogOpen(false);
-      // Refetch data to show updated name/location
       if(deviceInfo) {
         setDeviceInfo({
             ...deviceInfo,
@@ -357,6 +402,11 @@ export default function DeviceDetailsPage() {
     );
   }
 
+  const onPieEnter = (_: any, index: number) => {
+    setActivePieIndex(index);
+  };
+
+
   return (
     <div className="space-y-6">
        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -475,13 +525,23 @@ export default function DeviceDetailsPage() {
              {pieChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                        <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label>
+                        <Pie 
+                            activeIndex={activePieIndex}
+                            activeShape={renderActiveShape}
+                            data={pieChartData}
+                            cx="50%" 
+                            cy="50%" 
+                            innerRadius={80}
+                            outerRadius={110} 
+                            dataKey="value" 
+                            onMouseEnter={onPieEnter}
+                        >
                             {pieChartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} className="stroke-background hover:opacity-80 focus:outline-none transition-opacity"/>
                             ))}
                         </Pie>
                         <Tooltip content={<ChartTooltipContent />} />
-                        <Legend />
+                        <Legend iconType="circle" />
                     </PieChart>
                 </ResponsiveContainer>
              ) : (
