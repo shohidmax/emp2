@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 import { useToast } from './use-toast';
 
-const API_URL = 'http://localhost:3005/api/user';
+const API_URL = 'https://esp-web-server2.onrender.com/api/user';
 
 interface UserPayload {
   userId: string;
