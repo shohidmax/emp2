@@ -30,6 +30,7 @@ export default function AdminUserManagerPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (!token) throw new Error('No auth token found.');
 
@@ -38,7 +39,8 @@ export default function AdminUserManagerPage() {
       });
       if (!response.ok) {
         if (response.status === 403) throw new Error('Admin access required to view this page.');
-        throw new Error(`Failed to fetch users: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to fetch users: ${response.statusText}`);
       }
       const data = await response.json();
       setUsers(data.sort((a: UserData, b: UserData) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -53,6 +55,9 @@ export default function AdminUserManagerPage() {
   useEffect(() => {
     if(token) {
         fetchUsers();
+    } else {
+      // If there's no token, we can stop loading and wait for the useUser hook to redirect.
+      setLoading(false);
     }
   }, [token]);
 
@@ -77,6 +82,7 @@ export default function AdminUserManagerPage() {
         throw new Error(result.message || 'Failed to update role.');
       }
       toast({ title: 'Success', description: `${targetUser.name}'s role has been updated.` });
+      // We don't need to refetch, optimistic update is enough for the switch
       
     } catch (e: any) {
       // Revert UI on failure
