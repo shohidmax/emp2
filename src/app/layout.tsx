@@ -1,8 +1,10 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { ThemeProvider } from '@/components/theme-provider';
+import { UserProvider } from '@/hooks/use-user';
 
 export const metadata: Metadata = {
   title: 'EMS - Environmental Monitoring System',
@@ -31,9 +33,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/10 via-white to-secondary/10 dark:from-primary/10 dark:via-background dark:to-secondary/10 -z-10" />
-            {children}
-            <Toaster />
+            <UserProvider>
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/10 via-white to-secondary/10 dark:from-primary/10 dark:via-background dark:to-secondary/10 -z-10" />
+              {children}
+              <Toaster />
+            </UserProvider>
           </ThemeProvider>
       </body>
     </html>

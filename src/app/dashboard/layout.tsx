@@ -58,21 +58,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.refresh();
   };
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-  
-  if (!user) {
-    // This check is important for the case where `isLoading` is false but `user` is still null.
-    // The hook should handle the redirect, but this is a safe fallback.
-    return (
-       <div className="flex min-h-screen w-full items-center justify-center">
-         <p>Redirecting to login...</p>
-         <Loader2 className="ml-2 h-8 w-8 animate-spin" />
       </div>
     );
   }

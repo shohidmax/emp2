@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -26,14 +27,14 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useUser();
+  const { token, isAdmin } = useUser();
 
   const fetchData = async () => {
      if (!token) {
         setLoading(false);
         return;
     }
-    setLoading(true);
+    // Do not set loading to true here to avoid flickering on interval refresh
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const response = await fetch(API_URL, { headers, cache: 'no-cache' });
@@ -57,7 +58,7 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    fetchData();
+    fetchData(); // Initial fetch
     const interval = setInterval(fetchData, 60000); // Poll every 60 seconds
     return () => clearInterval(interval);
   }, [token]);
@@ -97,7 +98,7 @@ export default function DashboardPage() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Dashboard Overview</h1>
-          <p className="text-muted-foreground">A quick summary of all online devices.</p>
+          <p className="text-muted-foreground">A quick summary of your online devices.</p>
         </div>
         {!loading && !error && (
             <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg">
@@ -134,7 +135,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-amber-500">{avgTemp !== null ? `${avgTemp.toFixed(1)}°C` : 'N/A'}</div>
-                        <p className="text-xs text-muted-foreground">Across all online devices</p>
+                        <p className="text-xs text-muted-foreground">Across your online devices</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -144,7 +145,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-sky-500">{avgWater.toFixed(2)} m</div>
-                        <p className="text-xs text-muted-foreground">Across all online devices</p>
+                        <p className="text-xs text-muted-foreground">Across your online devices</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -154,12 +155,12 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-emerald-500">{avgRain.toFixed(2)} mm</div>
-                        <p className="text-xs text-muted-foreground">Across all online devices</p>
+                        <p className="text-xs text-muted-foreground">Across your online devices</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
+                        <CardTitle className="text-sm font-medium">Your Devices</CardTitle>
                         <List className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -175,7 +176,7 @@ export default function DashboardPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>A log of the most recently updated devices.</CardDescription>
+                    <CardDescription>A log of your most recently updated devices.</CardDescription>
                 </CardHeader>
                 <CardContent>
                    <div className="space-y-4">
@@ -184,7 +185,7 @@ export default function DashboardPage() {
                         <div key={device.uid} className="flex items-center">
                             <div className={`h-2.5 w-2.5 rounded-full mr-3 ${device.status === 'online' ? 'bg-green-500' : 'bg-muted-foreground'}`}></div>
                             <div className="flex-1">
-                                <p className="text-sm font-medium leading-none">Device <Link href={`/dashboard/device/${device.uid}`} className="font-mono text-primary text-xs hover:underline">{device.uid.substring(0, 12)}...</Link></p>
+                                <p className="text-sm font-medium leading-none">Device <Link href={`/dashboard/device/${device.uid}`} className="font-mono text-primary text-xs hover:underline">{device.name || device.uid.substring(0, 12)}...</Link></p>
                                 <p className="text-sm text-muted-foreground">
                                     {`Temp: ${device.data?.temperature !== null && device.data?.temperature !== undefined ? device.data.temperature.toFixed(1) + '°C' : 'N/A'}`}
                                 </p>
@@ -206,10 +207,12 @@ export default function DashboardPage() {
                         <List className="h-8 w-8 text-primary" />
                         <p className="mt-2 text-sm font-semibold">View All Devices</p>
                     </Link>
-                    <Link href="/dashboard/admin/reports" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                        <BarChart className="h-8 w-8 text-primary" />
-                        <p className="mt-2 text-sm font-semibold">Reports & Analytics</p>
-                    </Link>
+                    {isAdmin && (
+                        <Link href="/dashboard/admin/reports" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                            <BarChart className="h-8 w-8 text-primary" />
+                            <p className="mt-2 text-sm font-semibold">Admin Reports</p>
+                        </Link>
+                    )}
                 </CardContent>
             </Card>
         </div>

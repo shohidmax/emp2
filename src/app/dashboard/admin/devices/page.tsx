@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useUser } from '@/hooks/use-user';
 
 const API_BASE_URL = 'https://espserver3.onrender.com/api';
 
@@ -33,13 +35,16 @@ export default function AdminDeviceManagerPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingDevice, setEditingDevice] = useState<AdminDevice | null>(null);
   const { toast } = useToast();
+  const { token } = useUser();
 
   const fetchDevices = async () => {
+    if (!token) {
+        setLoading(false);
+        setError('Authentication token not found.');
+        return;
+    }
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('No auth token found.');
-
       const response = await fetch(`${API_BASE_URL}/admin/devices`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -58,7 +63,7 @@ export default function AdminDeviceManagerPage() {
 
   useEffect(() => {
     fetchDevices();
-  }, []);
+  }, [token]);
 
   const handleEdit = (device: AdminDevice) => {
     setEditingDevice({ ...device });
@@ -69,9 +74,8 @@ export default function AdminDeviceManagerPage() {
   };
 
   const handleSave = async () => {
-    if (!editingDevice) return;
+    if (!editingDevice || !token) return;
     try {
-      const token = localStorage.getItem('token');
       const { uid, name, location } = editingDevice;
       const response = await fetch(`${API_BASE_URL}/device/${uid}`, {
         method: 'PUT',

@@ -32,7 +32,7 @@ export default function ProfilePage() {
   };
 
   const onDeviceAdded = () => {
-      fetchUserProfile(); // This will now correctly refetch the user data
+      fetchUserProfile();
   };
 
   return (
@@ -69,7 +69,7 @@ export default function ProfilePage() {
                         </Button>
                     </CardHeader>
                     <CardContent>
-                        {isLoading && (!user || user.devices.length === 0) ? (
+                        {isLoading && (!user || !user.devices) ? (
                             <div className="space-y-3">
                                 <Skeleton className="h-10 w-full" />
                                 <Skeleton className="h-10 w-full" />
