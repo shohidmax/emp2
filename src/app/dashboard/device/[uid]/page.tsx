@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -127,8 +128,8 @@ export default function DeviceDetailsPage() {
 
 
   const latestData = useMemo(() => {
-    const sorted = [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return sorted.length > 0 ? sorted[0] : null;
+    if (deviceHistory.length === 0) return null;
+    return [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [deviceHistory]);
 
   const filteredData = useMemo(() => {
@@ -155,64 +156,71 @@ export default function DeviceDetailsPage() {
   const PIE_COLORS = ['#fbbf24', '#38bdf8', '#34d399'];
 
 
-  const fetchData = async (start?: string, end?: string) => {
+  const fetchDeviceData = async (start?: string, end?: string) => {
     setLoading(true);
     setError(null);
     try {
-      if (!token) return;
+        if (!token) return;
+        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+        
+        let url;
+        let options: RequestInit = { headers, cache: 'no-cache' };
 
-      const headers = { 'Authorization': `Bearer ${token}` };
+        if (start && end) {
+            url = `${API_URL_BASE}/data-by-range`;
+            options.method = 'POST';
+            options.body = JSON.stringify({ uid, start, end, limit: 10000 });
+        } else {
+            url = `${API_URL_BASE}/data?uid=${uid}&limit=1000`;
+            options.method = 'GET';
+        }
+        
+        const historyResponse = await fetch(url, options);
 
-      const listResponse = await fetch(`${API_URL_BASE}/list`, { headers });
-      if (listResponse.ok) {
-        const devices: DeviceInfo[] = await listResponse.json();
-        const currentDevice = devices.find(d => d.uid === uid);
-        setDeviceInfo(currentDevice || null);
-        setEditingName(currentDevice?.name || '');
-        setEditingLocation(currentDevice?.location || '');
-      } else {
-        console.warn('Could not fetch device info');
-      }
-
-      let historyResponse;
-      let url;
-      let options: RequestInit = { headers, cache: 'no-cache' };
-
-      if (start && end) {
-        url = `${API_URL_BASE}/data-by-range`;
-        options.method = 'POST';
-        options.headers = { ...options.headers, 'Content-Type': 'application/json' };
-        options.body = JSON.stringify({ uid, start, end, limit: 10000 });
-      } else {
-        url = `${API_URL_BASE}/data?uid=${uid}&limit=1000`;
-      }
-      
-      historyResponse = await fetch(url, options);
-
-      if (!historyResponse.ok) throw new Error(`Network response was not ok. Status: ${historyResponse.status}`);
-      
-      const jsonData = await historyResponse.json();
-      const processedData = jsonData.map((d: any) => ({
-        ...d,
-        temperature: (d.temperature === 85 || typeof d.temperature !== 'number') ? null : d.temperature,
-        water_level: (typeof d.water_level !== 'number') ? 0 : d.water_level,
-        rainfall: (typeof d.rainfall !== 'number') ? 0 : d.rainfall,
-        timestamp: d.timestamp && !d.timestamp.startsWith('1970-') ? d.timestamp : null
-      })).filter((d: any) => d.timestamp);
-      
-      setDeviceHistory(processedData);
+        if (!historyResponse.ok) throw new Error(`Network response was not ok. Status: ${historyResponse.status}`);
+        
+        const jsonData = await historyResponse.json();
+        const processedData = jsonData.map((d: any) => ({
+            ...d,
+            temperature: (d.temperature === 85 || typeof d.temperature !== 'number') ? null : d.temperature,
+            water_level: (typeof d.water_level !== 'number') ? 0 : d.water_level,
+            rainfall: (typeof d.rainfall !== 'number') ? 0 : d.rainfall,
+            timestamp: d.timestamp && !d.timestamp.startsWith('1970-') ? d.timestamp : null
+        })).filter((d: any) => d.timestamp);
+        
+        setDeviceHistory(processedData);
     } catch (e: any) {
-      console.error('Failed to fetch data:', e);
-      setError('Failed to fetch device data. The server might be offline. Please try again later.');
+        console.error('Failed to fetch data:', e);
+        setError('Failed to fetch device data. The server might be offline. Please try again later.');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
+
+  const fetchDeviceInfo = async () => {
+    if (!token) return;
+    try {
+        const headers = { 'Authorization': `Bearer ${token}` };
+        const listResponse = await fetch(`${API_URL_BASE}/list`, { headers });
+        if (listResponse.ok) {
+            const devices: DeviceInfo[] = await listResponse.json();
+            const currentDevice = devices.find(d => d.uid === uid);
+            setDeviceInfo(currentDevice || null);
+            setEditingName(currentDevice?.name || '');
+            setEditingLocation(currentDevice?.location || '');
+        } else {
+            console.warn('Could not fetch device info');
+        }
+    } catch(e) {
+        console.warn('Could not fetch device info', e)
+    }
+  }
 
 
   useEffect(() => {
     if (token) {
-        fetchData();
+        fetchDeviceInfo();
+        fetchDeviceData();
     }
   }, [uid, token]);
   
@@ -226,14 +234,14 @@ export default function DeviceDetailsPage() {
   
   const handleFilter = () => {
     if (startDate && endDate) {
-      fetchData(startDate, endDate);
+      fetchDeviceData(startDate, endDate);
     }
   }
 
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
-    fetchData();
+    fetchDeviceData();
   };
 
   const handleSave = async () => {
@@ -595,3 +603,5 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
+
+    
