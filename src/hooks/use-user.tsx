@@ -79,10 +79,6 @@ export function useUser() {
         };
 
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ADMIN_EMAIL;
-        const userIsAdmin = profile.email === adminEmail;
-        setIsAdmin(userIsAdmin);
-        
-        setUser(profile);
         
         try {
             const profileResponse = await fetch(`${API_URL}/profile`, {
@@ -92,9 +88,15 @@ export function useUser() {
                 const fullProfile: UserProfile = await profileResponse.json();
                 setUser(fullProfile);
                 setIsAdmin(fullProfile.email === adminEmail || !!fullProfile.isAdmin);
+            } else {
+                 // If fetching full profile fails, fallback to token data
+                setUser(profile);
+                setIsAdmin(profile.email === adminEmail);
             }
         } catch (e) {
             // Keep the admin status from the token if profile fetch fails
+            setUser(profile);
+            setIsAdmin(profile.email === adminEmail);
         }
 
         return true;
