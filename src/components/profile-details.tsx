@@ -4,11 +4,15 @@ import { useUser } from '@/hooks/use-user';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { User, Shield, HardDrive, Calendar } from 'lucide-react';
+import { User, Shield, HardDrive, Calendar, Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AddDeviceDialog } from './add-device-dialog';
+import { Button } from './ui/button';
+import { useState } from 'react';
 
 export function ProfileDetails() {
-    const { user, isAdmin, isLoading } = useUser();
+    const { user, isAdmin, isLoading, fetchUserProfile } = useUser();
+    const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
 
     if (isLoading || !user) {
         return (
@@ -30,7 +34,13 @@ export function ProfileDetails() {
     const displayName = user.name || user.email || 'User';
     const avatarFallback = displayName.substring(0, 2).toUpperCase();
 
+    const onDeviceAdded = () => {
+        fetchUserProfile(); // Refetch user profile to update device count
+    }
+
     return (
+        <>
+        <AddDeviceDialog open={isAddDeviceOpen} onOpenChange={setIsAddDeviceOpen} onDeviceAdded={onDeviceAdded} />
         <Card>
             <CardHeader className="items-center text-center">
                 <Avatar className="h-24 w-24 mb-4 border-2 border-primary">
@@ -53,7 +63,12 @@ export function ProfileDetails() {
                         <HardDrive className="h-5 w-5 text-primary" />
                         <span className="font-medium">Devices</span>
                     </div>
-                    <span className="font-semibold">{user.devices?.length ?? 0}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="font-semibold">{user.devices?.length ?? 0}</span>
+                         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsAddDeviceOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
                 {user.createdAt && (
                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -66,5 +81,6 @@ export function ProfileDetails() {
                 )}
             </CardContent>
         </Card>
+        </>
     );
 }

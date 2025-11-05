@@ -11,7 +11,7 @@ const API_URL = 'https://espserver3.onrender.com/api/user';
 interface UserPayload {
   userId: string;
   email: string;
-  name?: string; // name might not always be in the token
+  name?: string;
   iat: number;
   exp: number;
 }
@@ -36,30 +36,27 @@ export function useUser() {
   const pathname = usePathname();
   const { toast } = useToast();
 
-   const fetchFullUserProfile = async (tokenToVerify: string, baseProfile: Partial<UserProfile>) => {
-      try {
-          const response = await fetch(`${API_URL}/profile`, {
-              headers: { 'Authorization': `Bearer ${tokenToVerify}` }
-          });
-          if (!response.ok) {
-            // Fallback to basic profile if endpoint fails
-             setUser(baseProfile as UserProfile);
-             return;
-          }
-          const fullProfile: UserProfile = await response.json();
-          
-          const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
-          const userIsAdmin = fullProfile.email === adminEmail || fullProfile.isAdmin;
 
-          setUser(fullProfile);
-          setIsAdmin(userIsAdmin);
+  const fetchUserProfile = useCallback(async () => {
+    const tokenToVerify = localStorage.getItem('token');
+    if (!tokenToVerify) return;
 
-      } catch (error) {
-          console.warn('Full profile fetch failed, using base profile from token:', error);
-          setUser(baseProfile as UserProfile); // Use the base profile as a fallback
-      }
-  }
-
+    try {
+        const response = await fetch(`${API_URL}/profile`, {
+            headers: { 'Authorization': `Bearer ${tokenToVerify}` }
+        });
+        if (response.ok) {
+            const fullProfile: UserProfile = await response.json();
+            setUser(fullProfile);
+            const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
+            setIsAdmin(fullProfile.email === adminEmail || !!fullProfile.isAdmin);
+        } else {
+           console.warn('Could not refetch profile, user data might be stale.');
+        }
+    } catch (error) {
+        console.warn('Full profile refetch failed:', error);
+    }
+  }, []);
 
   const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string | null) => {
     if (!tokenToVerify) {
@@ -69,12 +66,8 @@ export function useUser() {
     try {
       const decoded: UserPayload = jwtDecode(tokenToVerify);
       if (decoded.exp * 1000 > Date.now()) {
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
-        const userIsAdmin = decoded.email === adminEmail;
-        setIsAdmin(userIsAdmin);
         setToken(tokenToVerify);
 
-        // Fetch the full profile from the backend to get device list etc.
          const response = await fetch(`${API_URL}/profile`, {
             headers: { 'Authorization': `Bearer ${tokenToVerify}` }
         });
@@ -83,17 +76,21 @@ export function useUser() {
         if(response.ok) {
             profile = await response.json();
         } else {
-            // Fallback if /profile endpoint fails or doesn't exist
+            // Fallback if /profile endpoint fails
             profile = {
                 _id: decoded.userId,
                 name: decoded.name || decoded.email,
                 email: decoded.email,
                 devices: [],
                 createdAt: new Date(decoded.iat * 1000).toISOString(),
-                isAdmin: userIsAdmin
             };
         }
+        
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
+        const userIsAdmin = profile.email === adminEmail || !!profile.isAdmin;
+
         setUser(profile);
+        setIsAdmin(userIsAdmin);
         return true;
       }
     } catch (error) {
@@ -157,5 +154,5 @@ export function useUser() {
   };
 
 
-  return { user, token, isAdmin, isLoading, login, logout };
+  return { user, token, isAdmin, isLoading, login, logout, fetchUserProfile };
 }
