@@ -162,7 +162,11 @@ export default function DeviceDetailsPage() {
         setDeviceHistory(processedData);
     } catch (e: any) {
         console.error('Failed to fetch data:', e);
-        setError('Failed to fetch device data. The server might be offline. Please try again later.');
+        if (e.message.includes('403')) {
+            setError('You do not have permission to view this device.');
+        } else {
+            setError('Failed to fetch device data. The server might be offline. Please try again later.');
+        }
     } finally {
         setLoading(false);
     }
@@ -386,7 +390,7 @@ export default function DeviceDetailsPage() {
       <div className="m-auto">
         <Alert variant="destructive">
           <TriangleAlert className="h-4 w-4" />
-          <AlertTitle>Connection Error</AlertTitle>
+          <AlertTitle>Access Denied or Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
          <Button onClick={() => router.push('/dashboard')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Button>
@@ -602,5 +606,3 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
-
-    
