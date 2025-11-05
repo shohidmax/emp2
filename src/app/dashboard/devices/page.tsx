@@ -1,13 +1,15 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain } from 'lucide-react';
+import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain, Pin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/use-user';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const API_URL = 'https://espserver3.onrender.com/api/device/list';
 
@@ -28,8 +30,31 @@ export default function DeviceListPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pinnedDevices, setPinnedDevices] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { token } = useUser();
+
+  useEffect(() => {
+    const storedPins = localStorage.getItem('pinnedDevices');
+    if (storedPins) {
+      setPinnedDevices(new Set(JSON.parse(storedPins)));
+    }
+  }, []);
+
+  const togglePin = (e: React.MouseEvent, uid: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const newPinnedDevices = new Set(pinnedDevices);
+    if (newPinnedDevices.has(uid)) {
+      newPinnedDevices.delete(uid);
+      toast({ title: 'Device unpinned.' });
+    } else {
+      newPinnedDevices.add(uid);
+      toast({ title: 'Device pinned!' });
+    }
+    setPinnedDevices(newPinnedDevices);
+    localStorage.setItem('pinnedDevices', JSON.stringify(Array.from(newPinnedDevices)));
+  };
 
   const handleCopy = (e: React.MouseEvent, text: string) => {
     e.stopPropagation();
@@ -57,7 +82,7 @@ export default function DeviceListPage() {
       
       const deviceList: DeviceInfo[] = await response.json();
       
-      setDevices(deviceList.sort((a,b) => (b.lastSeen && a.lastSeen) ? new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime() : 0));
+      setDevices(deviceList);
       setError(null);
 
     } catch (e: any) {
@@ -73,6 +98,23 @@ export default function DeviceListPage() {
     const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
     return () => clearInterval(interval);
   }, [token]);
+  
+  const sortedDevices = useMemo(() => {
+      return [...devices].sort((a, b) => {
+        const aIsPinned = pinnedDevices.has(a.uid);
+        const bIsPinned = pinnedDevices.has(b.uid);
+
+        if (aIsPinned && !bIsPinned) return -1;
+        if (!aIsPinned && bIsPinned) return 1;
+
+        // Fallback to sorting by lastSeen time if both are pinned or unpinned
+        if (b.lastSeen && a.lastSeen) {
+            return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
+        }
+        return 0;
+      });
+  }, [devices, pinnedDevices]);
+
 
   const onlineDevicesCount = devices.filter(device => device.status === 'online').length;
   
@@ -126,16 +168,27 @@ export default function DeviceListPage() {
       <TooltipProvider>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {loading && devices.length === 0 ? renderSkeletons() : 
-            devices.length > 0 ? (
-              devices.map((device) => {
+            sortedDevices.length > 0 ? (
+              sortedDevices.map((device) => {
                 const latestData = device.latestData;
+                const isPinned = pinnedDevices.has(device.uid);
                 return (
                 <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
                   <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
                     <CardHeader className="relative">
-                      <div className={`absolute top-4 right-4 flex items-center gap-2 text-xs font-semibold ${device.status === 'online' ? 'text-green-500' : 'text-muted-foreground'}`}>
-                        <span className={`h-2 w-2 rounded-full ${device.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></span>
-                        {device.status}
+                      <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button size="icon" variant="ghost" className={cn("h-7 w-7 rounded-full", isPinned ? 'text-primary' : 'text-muted-foreground')} onClick={(e) => togglePin(e, device.uid)}>
+                                    <Pin className={cn("h-4 w-4", isPinned && 'fill-primary')} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{isPinned ? 'Unpin Device' : 'Pin Device'}</p></TooltipContent>
+                        </Tooltip>
+                        <div className={cn('flex items-center gap-2 text-xs font-semibold', device.status === 'online' ? 'text-green-500' : 'text-muted-foreground')}>
+                            <span className={cn('h-2 w-2 rounded-full', device.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground')}></span>
+                            {device.status}
+                        </div>
                       </div>
                       <CardTitle className="text-primary pr-16">{device.name || 'Device'}</CardTitle>
                       <Tooltip>
