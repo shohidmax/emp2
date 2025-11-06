@@ -42,7 +42,6 @@ export default function AdminUserManagerPage() {
       if (!response.ok) {
         if (response.status === 403) throw new Error('Admin access required to view this page.');
         
-        // Handle non-JSON responses gracefully
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.indexOf("application/json") !== -1) {
             const errorData = await response.json();
@@ -65,9 +64,6 @@ export default function AdminUserManagerPage() {
   useEffect(() => {
     if(token) {
         fetchUsers();
-    } else {
-      // If there's no token, we can stop loading and wait for the useUser hook to redirect.
-      setLoading(false);
     }
   }, [token]);
 
@@ -92,7 +88,8 @@ export default function AdminUserManagerPage() {
         throw new Error(result.message || 'Failed to update role.');
       }
       toast({ title: 'Success', description: `${targetUser.name}'s role has been updated.` });
-      // We don't need to refetch, optimistic update is enough for the switch
+      // Re-fetch to be sure of the state
+      fetchUsers();
       
     } catch (e: any) {
       // Revert UI on failure

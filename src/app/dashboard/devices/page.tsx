@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain, Pin, Search } from 'lucide-react';
+import { TriangleAlert, Copy, Thermometer, Droplets, CloudRain, Pin, Search, Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/use-user';
@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { AddDeviceDialog } from '@/components/add-device-dialog';
+
 
 const API_URL = 'https://espserver3.onrender.com/api/user/devices';
 
@@ -36,8 +38,9 @@ export default function DeviceListPage() {
   const [pinnedDevices, setPinnedDevices] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
-  const { token, isAdmin } = useUser();
+  const { user, token, isAdmin, fetchUserProfile } = useUser();
   const router = useRouter();
+  const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   
   useEffect(() => {
     // Redirect admin to the admin device management page
@@ -84,7 +87,7 @@ export default function DeviceListPage() {
         setLoading(false);
         return;
     }
-    setLoading(true);
+    // Do not set loading to true to avoid flicker on interval
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const response = await fetch(API_URL, { headers, cache: 'no-cache' });
@@ -107,9 +110,11 @@ export default function DeviceListPage() {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
+    if (token && !isAdmin) {
+        fetchData();
+        const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
+        return () => clearInterval(interval);
+    }
   }, [token, isAdmin]);
   
   const sortedDevices = useMemo(() => {
@@ -136,6 +141,10 @@ export default function DeviceListPage() {
         });
   }, [devices, pinnedDevices, searchQuery]);
 
+  const onDeviceAdded = () => {
+      fetchUserProfile(); // Refetch user profile from hook
+      fetchData(); // Refetch device list
+  };
 
   const onlineDevicesCount = devices.filter(device => device.status === 'online').length;
   
@@ -167,19 +176,26 @@ export default function DeviceListPage() {
 
   return (
     <div className="flex flex-col gap-6">
+        <AddDeviceDialog open={isAddDeviceOpen} onOpenChange={setIsAddDeviceOpen} onDeviceAdded={onDeviceAdded} />
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
-            <h1 className="text-3xl font-bold">My Devices</h1>
-            <p className="text-muted-foreground">All devices registered to your account.</p>
+              <h1 className="text-3xl font-bold">My Devices</h1>
+              <p className="text-muted-foreground">All devices registered to your account.</p>
             </div>
-             <div className="relative w-full md:max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Search by name or UID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                />
+             <div className="flex w-full md:w-auto items-center gap-2">
+                <div className="relative w-full md:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by name or UID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                 <Button onClick={() => setIsAddDeviceOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Device
+                </Button>
             </div>
         </div>
         
@@ -274,7 +290,7 @@ export default function DeviceListPage() {
               )})
             ) : (
               !error && <div className="col-span-full text-center text-muted-foreground h-40 flex items-center justify-center">
-                <p>{searchQuery ? `No devices found for "${searchQuery}".` : "You have no devices registered to your account yet. Click 'Add Device' from your profile page to get started."}</p>
+                <p>{searchQuery ? `No devices found for "${searchQuery}".` : "You have no devices registered to your account yet. Click 'Add Device' to get started."}</p>
               </div>
             )}
         </div>

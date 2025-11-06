@@ -52,16 +52,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     logout();
-    router.push('/login');
-    router.refresh();
   };
 
   if (isLoading || !user) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -82,8 +80,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Overview" isActive={pathname === '/dashboard'}>
-                  <Link href="/dashboard">
+                <SidebarMenuButton asChild tooltip="Overview" isActive={pathname === '/dashboard' || pathname === '/dashboard/admin'}>
+                  <Link href={isAdmin ? "/dashboard/admin" : "/dashboard"}>
                     <Home />
                     <span>Overview</span>
                   </Link>
@@ -91,22 +89,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </SidebarMenuItem>
               
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/')}>
+                <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/') || pathname.startsWith('/dashboard/admin/devices')}>
                 <Link href={isAdmin ? "/dashboard/admin/devices" : "/dashboard/devices"}>
                     <List />
-                    <span>Device List</span>
+                    <span>{isAdmin ? 'Manage Devices' : 'My Devices'}</span>
                 </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               
-               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Profile" isActive={pathname === '/dashboard/profile'}>
-                  <Link href="/dashboard/profile">
-                    <User />
-                    <span>Profile</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {!isAdmin && (
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Profile" isActive={pathname === '/dashboard/profile'}>
+                    <Link href="/dashboard/profile">
+                        <User />
+                        <span>Profile</span>
+                    </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
                <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings" isActive={pathname === '/dashboard/settings'}>
                   <Link href="/dashboard/settings">
@@ -119,10 +120,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {isAdmin && (
                 <SidebarGroup>
                     <SidebarMenuItem>
-                        <SidebarMenuButton asChild tooltip="Admin Panel" isActive={pathname.startsWith('/dashboard/admin')}>
-                        <Link href="/dashboard/admin">
+                        <SidebarMenuButton asChild tooltip="User Management" isActive={pathname.startsWith('/dashboard/admin/users')}>
+                        <Link href="/dashboard/admin/users">
+                            <User />
+                            <span>Manage Users</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="Data Reports" isActive={pathname.startsWith('/dashboard/admin/reports')}>
+                        <Link href="/dashboard/admin/reports">
                             <Shield />
-                            <span>Admin Panel</span>
+                            <span>Data Reports</span>
                         </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -158,15 +167,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile"><User className="mr-2 h-4 w-4" />Profile</Link>
-                </DropdownMenuItem>
+                {!isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/profile"><User className="mr-2 h-4 w-4" />Profile</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/settings"><Settings className="mr-2 h-4 w-4" />Settings</Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                     <DropdownMenuItem asChild>
-                        <Link href="/dashboard/admin"><Shield className="mr-2 h-4 w-4" />Admin</Link>
+                        <Link href="/dashboard/admin"><Shield className="mr-2 h-4 w-4" />Admin Dashboard</Link>
                     </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

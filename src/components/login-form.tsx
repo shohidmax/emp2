@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -46,9 +47,9 @@ export function LoginForm() {
       if (success) {
         toast({
           title: 'Login Successful',
-          description: 'Redirecting to your dashboard...',
+          description: 'Welcome back!',
         });
-        // Use a hard redirect to ensure the page reloads and the user context is correctly applied.
+        // Hard redirect to dashboard to ensure all states are reset correctly.
         window.location.href = '/dashboard';
       } else {
         toast({

@@ -1,10 +1,12 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, HardDrive, List, Users, Cloud, BarChart, Download } from 'lucide-react';
+import { TriangleAlert, HardDrive, List, Users, Cloud, BarChart, Download, User } from 'lucide-react';
 import Link from 'next/link';
+import { useUser } from '@/hooks/use-user';
 
 const API_URL = 'https://espserver3.onrender.com';
 
@@ -21,13 +23,12 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useUser();
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!token) return;
       try {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found.');
-
         const response = await fetch(`${API_URL}/api/admin/stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -44,7 +45,7 @@ export default function AdminDashboardPage() {
       }
     };
     fetchStats();
-  }, []);
+  }, [token]);
 
   const renderSkeletons = () => (
     Array.from({ length: 4 }).map((_, index) => (
@@ -130,7 +131,7 @@ export default function AdminDashboardPage() {
                         <p className="mt-2 text-sm font-semibold">Manage Devices</p>
                     </Link>
                      <Link href="/dashboard/admin/users" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                        <Users className="h-8 w-8 text-primary" />
+                        <User className="h-8 w-8 text-primary" />
                         <p className="mt-2 text-sm font-semibold">Manage Users</p>
                     </Link>
                     <Link href="/dashboard/admin/reports" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">

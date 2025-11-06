@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 
@@ -50,41 +50,39 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
+        // On logout, redirect to login page
+        window.location.href = '/login';
     }, []);
 
-    const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string | null) => {
-        if (!tokenToVerify) {
-            logout();
-            setIsLoading(false);
-            return;
-        }
+    const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string) => {
         try {
             const decoded: UserPayload = jwtDecode(tokenToVerify);
             if (decoded.exp * 1000 < Date.now()) {
-                logout();
-                setIsLoading(false);
-                return;
+                throw new Error("Token expired");
             }
             
+            // Always fetch the full profile from the backend
             const profileResponse = await fetch(`${API_URL}/profile`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
 
-            if (profileResponse.ok) {
-                const fullProfile: UserProfile = await profileResponse.json();
-                setUser(fullProfile);
-                setToken(tokenToVerify);
-                setIsAdmin(fullProfile.isAdmin);
-            } else {
-                logout();
+            if (!profileResponse.ok) {
+                throw new Error("Failed to fetch user profile");
             }
+
+            const fullProfile: UserProfile = await profileResponse.json();
+            setUser(fullProfile);
+            setToken(tokenToVerify);
+            setIsAdmin(fullProfile.isAdmin);
+
         } catch (error) {
-            console.error('Invalid token or failed to fetch profile:', error);
-            logout();
-        } finally {
-            setIsLoading(false);
+            console.error('Token verification failed:', error);
+            localStorage.removeItem('token');
+            setUser(null);
+            setToken(null);
+            setIsAdmin(false);
         }
-    }, [logout]);
+    }, []);
     
     const fetchUserProfile = useCallback(async () => {
         const currentToken = localStorage.getItem('token');
@@ -95,9 +93,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
 
     useEffect(() => {
-        const tokenFromStorage = localStorage.getItem('token');
-        verifyTokenAndSetUser(tokenFromStorage);
-    }, []);
+        const initializeUser = async () => {
+            setIsLoading(true);
+            const tokenFromStorage = localStorage.getItem('token');
+            if (tokenFromStorage) {
+                await verifyTokenAndSetUser(tokenFromStorage);
+            }
+            setIsLoading(false);
+        }
+        initializeUser();
+    }, [verifyTokenAndSetUser]);
     
      useEffect(() => {
         if (isLoading) {
@@ -105,17 +110,17 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
+        const isHomePage = pathname === '/';
         const isProtectedPage = pathname.startsWith('/dashboard');
 
         if (!user && isProtectedPage) {
             router.replace('/login');
-        } else if (user && isAuthPage) {
+        } else if (user && (isAuthPage || isHomePage)) {
             router.replace('/dashboard');
         }
     }, [user, isLoading, pathname, router]);
 
     const login = async (email: string, password: string): Promise<boolean> => {
-        setIsLoading(true);
         try {
             const response = await fetch(`${API_URL}/login`, {
                 method: 'POST',
@@ -129,14 +134,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 await verifyTokenAndSetUser(data.token);
                 return true;
             }
-            logout();
             return false;
         } catch (error) {
             console.error('Login error:', error);
-            logout();
             return false;
-        } finally {
-             setIsLoading(false);
         }
     };
     

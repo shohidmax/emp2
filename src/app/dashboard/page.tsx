@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,10 +28,18 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token, isAdmin } = useUser();
+  const { user, token, isAdmin } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAdmin) {
+      router.replace('/dashboard/admin');
+    }
+  }, [isAdmin, router]);
+
 
   const fetchData = async () => {
-     if (!token) {
+     if (!token || isAdmin) {
         setLoading(false);
         return;
     }
@@ -58,10 +67,16 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    fetchData(); // Initial fetch
-    const interval = setInterval(fetchData, 60000); // Poll every 60 seconds
-    return () => clearInterval(interval);
-  }, [token]);
+    if (token && !isAdmin) {
+        fetchData(); // Initial fetch
+        const interval = setInterval(fetchData, 60000); // Poll every 60 seconds
+        return () => clearInterval(interval);
+    }
+  }, [token, isAdmin]);
+  
+  if (isAdmin) {
+      return null; // or a loading indicator while redirecting
+  }
 
   const onlineDevices = devices.filter(d => d.status === 'online');
   const onlineDevicesCount = onlineDevices.length;
@@ -165,7 +180,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{devices.length}</div>
-                        <p className="text-xs text-muted-foreground">{onlineDevicesCount} currently online</p>
+                        <Link href="/dashboard/devices" className="text-xs text-primary hover:underline">View All Devices</Link>
                     </CardContent>
                 </Card>
             </>
@@ -210,12 +225,10 @@ export default function DashboardPage() {
                         <List className="h-8 w-8 text-primary" />
                         <p className="mt-2 text-sm font-semibold">View My Devices</p>
                     </Link>
-                    {isAdmin && (
-                        <Link href="/dashboard/admin/reports" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                            <BarChart className="h-8 w-8 text-primary" />
-                            <p className="mt-2 text-sm font-semibold">Admin Reports</p>
-                        </Link>
-                    )}
+                    <Link href="/dashboard/profile" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                        <BarChart className="h-8 w-8 text-primary" />
+                        <p className="mt-2 text-sm font-semibold">My Profile</p>
+                    </Link>
                 </CardContent>
             </Card>
         </div>
