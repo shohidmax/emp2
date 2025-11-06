@@ -88,24 +88,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </SidebarMenuButton>
               </SidebarMenuItem>
               
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/')}>
-                <Link href={"/dashboard/devices"}>
-                    <List />
-                    <span>My Devices</span>
-                </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              
               {!isAdmin && (
-                <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Profile" isActive={pathname === '/dashboard/profile'}>
-                    <Link href="/dashboard/profile">
-                        <User />
-                        <span>Profile</span>
-                    </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="My Devices" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/')}>
+                        <Link href={"/dashboard/devices"}>
+                            <List />
+                            <span>My Devices</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="Profile" isActive={pathname === '/dashboard/profile'}>
+                        <Link href="/dashboard/profile">
+                            <User />
+                            <span>Profile</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </>
               )}
               
                <SidebarMenuItem>
