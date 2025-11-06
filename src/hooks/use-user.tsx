@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext, useTransition } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 
@@ -50,18 +50,24 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        // On logout, redirect to login page
         window.location.href = '/login';
     }, []);
 
-    const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string) => {
+    const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string | null) => {
+        if (!tokenToVerify) {
+            setUser(null);
+            setToken(null);
+            setIsAdmin(false);
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const decoded: UserPayload = jwtDecode(tokenToVerify);
             if (decoded.exp * 1000 < Date.now()) {
                 throw new Error("Token expired");
             }
             
-            // Always fetch the full profile from the backend
             const profileResponse = await fetch(`${API_URL}/profile`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
@@ -81,33 +87,23 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setToken(null);
             setIsAdmin(false);
+        } finally {
+            setIsLoading(false);
         }
     }, []);
     
     const fetchUserProfile = useCallback(async () => {
         const currentToken = localStorage.getItem('token');
-        if (currentToken) {
-            await verifyTokenAndSetUser(currentToken);
-        }
+        await verifyTokenAndSetUser(currentToken);
     }, [verifyTokenAndSetUser]);
-
 
     useEffect(() => {
-        const initializeUser = async () => {
-            setIsLoading(true);
-            const tokenFromStorage = localStorage.getItem('token');
-            if (tokenFromStorage) {
-                await verifyTokenAndSetUser(tokenFromStorage);
-            }
-            setIsLoading(false);
-        }
-        initializeUser();
+        const tokenFromStorage = localStorage.getItem('token');
+        verifyTokenAndSetUser(tokenFromStorage);
     }, [verifyTokenAndSetUser]);
     
-     useEffect(() => {
-        if (isLoading) {
-            return; // Do not run redirection logic while loading
-        }
+    useEffect(() => {
+        if (isLoading) return;
 
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
         const isHomePage = pathname === '/';
