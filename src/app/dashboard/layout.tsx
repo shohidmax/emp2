@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Home, User, Settings, LogOut, PanelLeft, Loader2, Sun, Moon, List, Shield, Users, BarChart3 } from 'lucide-react';
+import { Home, User, Settings, LogOut, PanelLeft, Loader2, Sun, Moon, List, Shield, Users, BarChart3, HardDrive } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -89,10 +89,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </SidebarMenuItem>
               
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/') || pathname.startsWith('/dashboard/admin/devices')}>
-                <Link href={isAdmin ? "/dashboard/admin/devices" : "/dashboard/devices"}>
+                <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/')}>
+                <Link href={"/dashboard/devices"}>
                     <List />
-                    <span>{isAdmin ? 'Manage Devices' : 'My Devices'}</span>
+                    <span>My Devices</span>
                 </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -119,6 +119,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {isAdmin && (
                 <SidebarGroup>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="All Devices" isActive={pathname.startsWith('/dashboard/admin/devices')}>
+                        <Link href="/dashboard/admin/devices">
+                            <HardDrive />
+                            <span>All Devices</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild tooltip="User Management" isActive={pathname.startsWith('/dashboard/admin/users')}>
                         <Link href="/dashboard/admin/users">
