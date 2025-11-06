@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Home, User, Settings, LogOut, PanelLeft, Loader2, Sun, Moon, List, Shield } from 'lucide-react';
+import { Home, User, Settings, LogOut, PanelLeft, Loader2, Sun, Moon, List, Shield, Users, BarChart3 } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -122,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild tooltip="User Management" isActive={pathname.startsWith('/dashboard/admin/users')}>
                         <Link href="/dashboard/admin/users">
-                            <User />
+                            <Users />
                             <span>Manage Users</span>
                         </Link>
                         </SidebarMenuButton>
@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                      <SidebarMenuItem>
                         <SidebarMenuButton asChild tooltip="Data Reports" isActive={pathname.startsWith('/dashboard/admin/reports')}>
                         <Link href="/dashboard/admin/reports">
-                            <Shield />
+                            <BarChart3 />
                             <span>Data Reports</span>
                         </Link>
                         </SidebarMenuButton>
