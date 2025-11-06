@@ -49,9 +49,9 @@ export function LoginForm() {
       if (success) {
         toast({
           title: 'Login Successful',
-          description: 'Welcome back!',
+          description: 'Welcome back! Redirecting...',
         });
-        // The redirection is now handled by the useUser hook.
+        // The redirection is now handled by the useUser hook via window.location
       } else {
         toast({
           title: 'Login Failed',

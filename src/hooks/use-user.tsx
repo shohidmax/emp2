@@ -11,6 +11,7 @@ interface UserPayload {
   userId: string;
   email: string;
   name?: string;
+  isAdmin?: boolean;
   iat: number;
   exp: number;
 }
@@ -60,18 +61,31 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 throw new Error("Token expired");
             }
 
-            const profileResponse = await fetch(`${API_URL}/user/profile`, {
+            // The /api/user/profile endpoint is returning a 404.
+            // We will fetch from /api/user/devices and construct a partial profile.
+            const devicesResponse = await fetch(`${API_URL}/user/devices`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
 
-            if (!profileResponse.ok) {
-                const errorData = await profileResponse.text();
-                console.error("Profile fetch failed with status:", profileResponse.status, "and data:", errorData);
-                throw new Error("Failed to fetch user profile");
+            if (!devicesResponse.ok) {
+                const errorData = await devicesResponse.text();
+                console.error("Device/Profile fetch failed with status:", devicesResponse.status, "and data:", errorData);
+                throw new Error("Failed to fetch user data");
             }
             
-            const fullProfile: UserProfile = await profileResponse.json();
-            return fullProfile;
+            const devices: { uid: string }[] = await devicesResponse.json();
+
+            // Construct a user profile from the token and device list
+            const partialProfile: UserProfile = {
+                _id: decoded.userId,
+                name: decoded.name || 'User',
+                email: decoded.email,
+                isAdmin: decoded.isAdmin || false,
+                devices: devices.map(d => d.uid),
+                createdAt: new Date(decoded.iat * 1000).toISOString(),
+            };
+
+            return partialProfile;
 
         } catch (error) {
             console.error('Token verification or profile fetch failed:', error);
@@ -89,14 +103,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 setToken(tokenFromStorage);
                 setIsAdmin(profile.isAdmin);
             } else {
-                localStorage.removeItem('token');
-                setUser(null);
-                setToken(null);
-                setIsAdmin(false);
+                // If profile fetch fails, token is invalid. Log out.
+                logout();
             }
         }
         setIsLoading(false);
-    }, [fetchUserProfile]);
+    }, [fetchUserProfile, logout]);
 
 
     useEffect(() => {
@@ -111,17 +123,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (user) {
             if (isAuthPage || isHomePage) {
-                router.replace(user.isAdmin ? '/dashboard/admin' : '/dashboard');
+                router.replace(isAdmin ? '/dashboard/admin' : '/dashboard');
             }
         } else {
             if (!isAuthPage && !isHomePage) {
                  router.replace('/login');
             }
         }
-    }, [user, isLoading, pathname, router]);
+    }, [user, isAdmin, isLoading, pathname, router]);
 
     const login = async (email: string, password: string): Promise<boolean> => {
-        setIsLoading(true);
         try {
             const response = await fetch(`${API_URL}/user/login`, {
                 method: 'POST',
@@ -130,33 +141,24 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             });
 
             if (!response.ok) {
-                setIsLoading(false);
                 return false;
             }
             
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('token', data.token);
-                const profile = await fetchUserProfile(data.token);
-                if (profile) {
-                    setUser(profile);
-                    setToken(data.token);
-                    setIsAdmin(profile.isAdmin);
-                    setIsLoading(false);
-                    router.push(profile.isAdmin ? '/dashboard/admin' : '/dashboard');
-                    return true;
-                }
+                // After storing the token, force a hard reload to ensure clean state
+                window.location.href = '/dashboard';
+                return true;
             }
-            setIsLoading(false);
             return false;
         } catch (error) {
             console.error('Login error:', error);
-            setIsLoading(false);
             return false;
         }
     };
     
-    const value = { user, token, isAdmin, isLoading, login, logout, fetchUserProfile: initializeAuth };
+    const value = { user, token, isAdmin, isLoading, login, logout, fetchUserProfile: () => initializeAuth() };
 
     return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
