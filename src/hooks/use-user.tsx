@@ -11,7 +11,7 @@ interface UserPayload {
   userId: string;
   email: string;
   name?: string;
-  isAdmin?: boolean; // Check for isAdmin boolean
+  isAdmin?: boolean;
   iat: number;
   exp: number;
 }
@@ -65,6 +65,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             if (decoded.exp * 1000 < Date.now()) {
                 throw new Error("Token expired");
             }
+            
+            const isUserAdmin = decoded.isAdmin === true;
 
             const devicesResponse = await fetch(`${API_URL}/user/devices`, {
                 headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -82,10 +84,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 _id: decoded.userId,
                 name: decoded.name || 'User',
                 email: decoded.email,
-                isAdmin: decoded.isAdmin === true, // Correctly check the isAdmin boolean
+                isAdmin: isUserAdmin,
                 devices: userDevices,
                 createdAt: new Date(decoded.iat * 1000).toISOString(),
             };
+
+            setUser(profile);
+            setToken(currentToken);
+            setIsAdmin(isUserAdmin);
 
             return profile;
 
@@ -100,12 +106,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (tokenFromStorage) {
-            const profile = await fetchUserProfile(tokenFromStorage);
-            if (profile) {
-                setUser(profile);
-                setToken(tokenFromStorage);
-                setIsAdmin(profile.isAdmin);
-            }
+            await fetchUserProfile(tokenFromStorage);
         }
         setIsLoading(false);
     }, [fetchUserProfile]);
@@ -149,11 +150,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('token', data.token);
-                setToken(data.token);
                 const profile = await fetchUserProfile(data.token);
                  if (profile) {
-                    setUser(profile);
-                    setIsAdmin(profile.isAdmin);
                     router.push(profile.isAdmin ? '/dashboard/admin' : '/dashboard');
                     return true;
                 }
