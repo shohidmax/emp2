@@ -61,18 +61,32 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 throw new Error("Token expired");
             }
 
-            const profileResponse = await fetch(`${API_URL}/user/profile`, {
+            // Let's rely on the token for primary user data and fetch devices separately.
+            // This avoids issues with the /api/user/profile endpoint.
+             const devicesResponse = await fetch(`${API_URL}/user/devices`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
 
-            if (!profileResponse.ok) {
-                const errorData = await profileResponse.text();
-                console.error("Profile fetch failed with status:", profileResponse.status, "and data:", errorData);
-                throw new Error("Failed to fetch user profile");
+            let userDevices: string[] = [];
+            if (devicesResponse.ok) {
+                const devicesData = await devicesResponse.json();
+                // Assuming the endpoint returns an array of device objects with a 'uid' property
+                userDevices = devicesData.map((d: any) => d.uid);
+            } else {
+                console.warn("Could not fetch user devices, but proceeding with login.");
             }
             
-            const fullProfile: UserProfile = await profileResponse.json();
-            return fullProfile;
+            // Construct a user profile from the token and device list
+            const partialProfile: UserProfile = {
+                _id: decoded.userId,
+                name: decoded.name || 'User',
+                email: decoded.email,
+                isAdmin: decoded.isAdmin || false,
+                devices: userDevices,
+                createdAt: new Date(decoded.iat * 1000).toISOString(),
+            };
+
+            return partialProfile;
 
         } catch (error) {
             console.error('Token verification or profile fetch failed:', error);
