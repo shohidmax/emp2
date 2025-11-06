@@ -185,7 +185,10 @@ export default function DashboardPage() {
                         <div key={device.uid} className="flex items-center">
                             <div className={`h-2.5 w-2.5 rounded-full mr-3 ${device.status === 'online' ? 'bg-green-500' : 'bg-muted-foreground'}`}></div>
                             <div className="flex-1">
-                                <p className="text-sm font-medium leading-none">Device <Link href={`/dashboard/device/${device.uid}`} className="font-mono text-primary text-xs hover:underline">{device.name || device.uid.substring(0, 12)}...</Link></p>
+                                <p className="text-sm font-medium leading-none">
+                                  <Link href={`/dashboard/device/${device.uid}`} className="font-semibold text-primary hover:underline">{device.name || 'Device'}</Link>
+                                  <span className='font-mono text-muted-foreground text-xs ml-2'>{device.uid}</span>
+                                </p>
                                 <p className="text-sm text-muted-foreground">
                                     {`Temp: ${device.data?.temperature !== null && device.data?.temperature !== undefined ? device.data.temperature.toFixed(1) + '°C' : 'N/A'}`}
                                 </p>
@@ -205,7 +208,7 @@ export default function DashboardPage() {
                 <CardContent className="grid grid-cols-2 gap-4">
                     <Link href="/dashboard/devices" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
                         <List className="h-8 w-8 text-primary" />
-                        <p className="mt-2 text-sm font-semibold">View All Devices</p>
+                        <p className="mt-2 text-sm font-semibold">View My Devices</p>
                     </Link>
                     {isAdmin && (
                         <Link href="/dashboard/admin/reports" className="flex flex-col items-center justify-center p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">

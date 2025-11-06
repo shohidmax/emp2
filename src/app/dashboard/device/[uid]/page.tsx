@@ -111,7 +111,7 @@ export default function DeviceDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const uid = params.uid as string;
-  const { isAdmin, token } = useUser();
+  const { user, isAdmin, token } = useUser();
   const { toast } = useToast();
 
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
@@ -185,23 +185,32 @@ export default function DeviceDetailsPage() {
         if (infoResponse.ok) {
             const devices: DeviceInfo[] = await infoResponse.json();
             const currentDevice = devices.find(d => d.uid === uid);
-            setDeviceInfo(currentDevice || null);
+            
+            if(!currentDevice && !isAdmin) {
+                setError("Access Denied: You do not own this device.");
+                return;
+            }
+
+            setDeviceInfo(currentDevice || { uid, name: 'Unclaimed Device', location: null, status: 'unknown', lastSeen: null});
             setEditingName(currentDevice?.name || '');
             setEditingLocation(currentDevice?.location || '');
         } else {
             console.warn('Could not fetch device info');
+             setError("Could not verify device ownership.");
         }
     } catch(e) {
-        console.warn('Could not fetch device info', e)
+        console.warn('Could not fetch device info', e);
+        setError("An error occurred while fetching device details.");
     }
-  }, [token, uid]);
+  }, [token, uid, isAdmin]);
 
   useEffect(() => {
     if (token && uid) {
-        fetchDeviceInfo();
-        fetchDeviceHistory();
+        fetchDeviceInfo().then(() => {
+            if(!error) fetchDeviceHistory();
+        })
     }
-  }, [uid, token, fetchDeviceInfo, fetchDeviceHistory]);
+  }, [uid, token, fetchDeviceInfo, fetchDeviceHistory, error]);
 
   const latestData = useMemo(() => {
     if (deviceHistory.length === 0) return null;
@@ -408,15 +417,15 @@ export default function DeviceDetailsPage() {
     );
   }
 
-  if (!loading && deviceHistory.length === 0 && !error) {
+  if (!loading && !deviceInfo && !error) {
     return (
         <div className="m-auto text-center">
             <Alert>
               <TriangleAlert className="h-4 w-4" />
-              <AlertTitle>No Data Found</AlertTitle>
-              <AlertDescription>No historical data could be found for this device (UID: {uid}).</AlertDescription>
+              <AlertTitle>No Device Found</AlertTitle>
+              <AlertDescription>No device could be found for this UID: {uid}.</AlertDescription>
             </Alert>
-            <Button onClick={() => router.push('/dashboard/devices')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
+            <Button onClick={() => router.push(isAdmin ? '/dashboard/admin/devices' : '/dashboard/devices')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
         </div>
     );
   }
@@ -458,7 +467,7 @@ export default function DeviceDetailsPage() {
 
 
       <div className="flex justify-between items-center">
-        <Button onClick={() => router.push('/dashboard/devices')} variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
+        <Button onClick={() => router.push(isAdmin ? '/dashboard/admin/devices' : '/dashboard/devices')} variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
         <div className="flex gap-2">
             {isAdmin && (
                 <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
@@ -487,6 +496,15 @@ export default function DeviceDetailsPage() {
         <p className="text-muted-foreground font-mono">{uid}</p>
         {deviceInfo?.location && <p className="text-muted-foreground text-sm">{deviceInfo.location}</p>}
       </div>
+      
+       {deviceHistory.length === 0 && !loading && (
+           <Alert>
+              <TriangleAlert className="h-4 w-4" />
+              <AlertTitle>No Data Available</AlertTitle>
+              <AlertDescription>There is no historical data for this device in the selected range. It may be a new device or there is an issue with data transmission.</AlertDescription>
+            </Alert>
+       )}
+
 
       <Card>
         <CardContent className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">

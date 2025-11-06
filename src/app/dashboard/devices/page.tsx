@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -11,6 +12,7 @@ import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const API_URL = 'https://espserver3.onrender.com/api/user/devices';
 
@@ -34,7 +36,16 @@ export default function DeviceListPage() {
   const [pinnedDevices, setPinnedDevices] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
-  const { token } = useUser();
+  const { token, isAdmin } = useUser();
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Redirect admin to the admin device management page
+    if (isAdmin) {
+      router.replace('/dashboard/admin/devices');
+    }
+  }, [isAdmin, router]);
+
 
   useEffect(() => {
     const storedPins = localStorage.getItem('pinnedDevices');
@@ -69,7 +80,7 @@ export default function DeviceListPage() {
   };
 
   const fetchData = async () => {
-    if (!token) {
+    if (!token || isAdmin) { // Don't fetch if user is admin, they will be redirected
         setLoading(false);
         return;
     }
@@ -89,7 +100,7 @@ export default function DeviceListPage() {
 
     } catch (e: any) {
       console.error('Failed to fetch data:', e);
-      setError('Failed to fetch live data. The server might be offline or an error occurred. Please try again later.');
+      setError('Failed to fetch your devices. The server might be offline or an error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +110,7 @@ export default function DeviceListPage() {
     fetchData();
     const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, isAdmin]);
   
   const sortedDevices = useMemo(() => {
       return [...devices]
@@ -144,12 +155,22 @@ export default function DeviceListPage() {
     ))
   );
 
+  if (isAdmin) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-2">Redirecting to Admin Device Management...</p>
+      </div>
+    )
+  }
+
+
   return (
     <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
-            <h1 className="text-3xl font-bold">Device List</h1>
-            <p className="text-muted-foreground">All registered environmental monitoring devices.</p>
+            <h1 className="text-3xl font-bold">My Devices</h1>
+            <p className="text-muted-foreground">All devices registered to your account.</p>
             </div>
              <div className="relative w-full md:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -253,7 +274,7 @@ export default function DeviceListPage() {
               )})
             ) : (
               !error && <div className="col-span-full text-center text-muted-foreground h-40 flex items-center justify-center">
-                <p>{searchQuery ? `No devices found for "${searchQuery}".` : "No devices found. You can add a device from your profile page."}</p>
+                <p>{searchQuery ? `No devices found for "${searchQuery}".` : "You have no devices registered to your account yet. Click 'Add Device' from your profile page to get started."}</p>
               </div>
             )}
         </div>

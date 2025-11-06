@@ -97,14 +97,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         const tokenFromStorage = localStorage.getItem('token');
         verifyTokenAndSetUser(tokenFromStorage);
-    }, [verifyTokenAndSetUser]);
+    }, []);
     
     useEffect(() => {
-        if (isLoading) return;
+        if (isLoading) {
+            return;
+        }
 
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
         const isProtectedPage = pathname.startsWith('/dashboard');
-
+        
         if (!user && isProtectedPage) {
             router.replace('/login');
         } else if (user && isAuthPage) {
@@ -127,6 +129,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 await verifyTokenAndSetUser(data.token);
                 return true;
             }
+            // Ensure loading is false on failed login
             setIsLoading(false);
             return false;
         } catch (error) {

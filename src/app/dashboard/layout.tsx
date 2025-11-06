@@ -89,9 +89,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/devices') || pathname.startsWith('/dashboard/device/')}>
-                <Link href="/dashboard/devices">
+                <Link href={isAdmin ? "/dashboard/admin/devices" : "/dashboard/devices"}>
                     <List />
                     <span>Device List</span>
                 </Link>
