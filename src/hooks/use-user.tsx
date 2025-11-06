@@ -3,18 +3,15 @@
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
 const API_URL = 'https://espserver3.onrender.com/api';
 
-interface UserPayload {
+interface UserPayload extends JwtPayload {
   userId: string;
   email: string;
   name?: string;
-  role?: string;
   isAdmin?: boolean;
-  iat: number;
-  exp: number;
 }
 
 export interface UserProfile {
@@ -52,49 +49,61 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
+        // Force a full reload to clear all state and redirect to login
         if (typeof window !== 'undefined') {
             window.location.href = '/login';
         }
     }, []);
 
-    const fetchUserProfile = useCallback(async (tokenToVerify?: string): Promise<UserProfile | null> => {
-        const currentToken = tokenToVerify || token;
-        if (!currentToken) {
-            return null;
-        }
-
+    const fetchUserProfile = useCallback(async (currentToken: string): Promise<boolean> => {
         try {
             const decoded: UserPayload = jwtDecode(currentToken);
-            if (decoded.exp * 1000 < Date.now()) {
+            if (decoded.exp && decoded.exp * 1000 < Date.now()) {
                 throw new Error("Token expired");
             }
             
-            const profileResponse = await fetch(`${API_URL}/user/profile`, {
+            const isUserAdmin = decoded.isAdmin === true;
+            
+            // Fetch devices separately as it seems to be the reliable endpoint
+            const devicesResponse = await fetch(`${API_URL}/user/devices`, {
                 headers: { 'Authorization': `Bearer ${currentToken}` }
             });
 
-            if (!profileResponse.ok) {
-                const errorData = await profileResponse.text();
-                console.error("Profile fetch failed with status:", profileResponse.status, "and data:", errorData);
-                throw new Error("Failed to fetch user profile");
+            let devices: string[] = [];
+            if (devicesResponse.ok) {
+                const devicesData = await devicesResponse.json();
+                // Assuming the endpoint returns an array of device objects with a 'uid' property
+                if (Array.isArray(devicesData)) {
+                  devices = devicesData.map((d: any) => d.uid);
+                }
+            } else {
+                console.warn('Could not fetch user devices, proceeding without them.');
             }
-            
-            const profile: UserProfile = await profileResponse.json();
+
+            const profile: UserProfile = {
+                _id: decoded.userId,
+                name: decoded.name || 'User',
+                email: decoded.email,
+                isAdmin: isUserAdmin,
+                devices: devices,
+                createdAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : new Date().toISOString(),
+                photoURL: '' 
+            };
 
             setUser(profile);
             setToken(currentToken);
-            setIsAdmin(profile.isAdmin);
-
-            return profile;
+            setIsAdmin(isUserAdmin);
+            return true;
 
         } catch (error) {
-            console.error('Token verification or profile fetch failed:', error);
+            console.error('Profile fetch or token validation failed:', error);
             logout();
-            return null;
+            return false;
         }
-    }, [token, logout]);
+    }, [logout]);
     
     const initializeAuth = useCallback(async () => {
+        setIsLoading(true);
         const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (tokenFromStorage) {
@@ -115,10 +124,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const isHomePage = pathname === '/';
         
         if (user) {
+            // If user is logged in
             if (isAuthPage || isHomePage) {
                 router.replace(isAdmin ? '/dashboard/admin' : '/dashboard');
             }
         } else {
+            // If user is not logged in
             if (!isAuthPage && !isHomePage) {
                  router.replace('/login');
             }
@@ -135,22 +146,18 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             });
 
             if (!response.ok) {
-                setIsLoading(false);
-                return false;
+                throw new Error('Login failed');
             }
             
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('token', data.token);
-                const profile = await fetchUserProfile(data.token);
-                 if (profile) {
-                    setIsLoading(false); // Set loading to false before navigation
-                    router.push(profile.isAdmin ? '/dashboard/admin' : '/dashboard');
-                    return true;
-                }
+                // After setting token, fetch profile which will handle state updates and redirection
+                const success = await fetchUserProfile(data.token);
+                setIsLoading(false); // Set loading to false after profile is fetched
+                return success;
             }
-            setIsLoading(false);
-            return false;
+             throw new Error('No token received');
         } catch (error) {
             console.error('Login error:', error);
             setIsLoading(false);
@@ -158,7 +165,15 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
     
-    const value = { user, token, isAdmin, isLoading, login, logout, fetchUserProfile: () => initializeAuth() };
+    const value = { 
+        user, 
+        token, 
+        isAdmin, 
+        isLoading, 
+        login, 
+        logout, 
+        fetchUserProfile: () => initializeAuth() // Reruns the whole auth initialization
+    };
 
     return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
