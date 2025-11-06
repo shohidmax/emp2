@@ -50,18 +50,19 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        setIsLoading(false);
     }, []);
 
     const verifyTokenAndSetUser = useCallback(async (tokenToVerify: string | null) => {
         if (!tokenToVerify) {
             logout();
+            setIsLoading(false);
             return;
         }
         try {
             const decoded: UserPayload = jwtDecode(tokenToVerify);
             if (decoded.exp * 1000 < Date.now()) {
                 logout();
+                setIsLoading(false);
                 return;
             }
             
@@ -84,11 +85,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             setIsLoading(false);
         }
     }, [logout]);
-
+    
     const fetchUserProfile = useCallback(async () => {
         const currentToken = localStorage.getItem('token');
-        await verifyTokenAndSetUser(currentToken);
+        if (currentToken) {
+            await verifyTokenAndSetUser(currentToken);
+        }
     }, [verifyTokenAndSetUser]);
+
 
     useEffect(() => {
         const tokenFromStorage = localStorage.getItem('token');
@@ -123,10 +127,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 await verifyTokenAndSetUser(data.token);
                 return true;
             }
+            setIsLoading(false);
             return false;
         } catch (error) {
             console.error('Login error:', error);
             logout();
+            setIsLoading(false);
             return false;
         }
     };
