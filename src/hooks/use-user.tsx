@@ -3,16 +3,10 @@
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { jwtDecode, type JwtPayload } from 'jwt-decode';
+
+// We are not using jwt-decode anymore as we rely on the API for profile info.
 
 const API_URL = 'https://espserver3.onrender.com/api';
-
-interface UserPayload extends JwtPayload {
-  userId: string;
-  email: string;
-  name?: string;
-  isAdmin?: boolean;
-}
 
 export interface UserProfile {
     _id: string;
@@ -50,50 +44,30 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setToken(null);
         setIsAdmin(false);
         if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+            router.replace('/login');
         }
-    }, []);
+    }, [router]);
 
     const fetchUserProfile = useCallback(async (tokenToVerify: string) => {
         try {
-            const decoded: UserPayload = jwtDecode(tokenToVerify);
-            if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-                throw new Error("Token expired");
-            }
-
-            const isUserAdmin = decoded.isAdmin === true;
-
-            const devicesResponse = await fetch(`${API_URL}/user/devices`, {
+            const response = await fetch(`${API_URL}/user/profile`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
 
-            let devices: string[] = [];
-            if (devicesResponse.ok) {
-                const devicesData = await devicesResponse.json();
-                if (Array.isArray(devicesData)) {
-                  devices = devicesData.map((d: any) => d.uid);
-                }
-            } else {
-                console.warn('Could not fetch user devices.');
+            if (!response.ok) {
+                // If the profile fetch fails (e.g., token expired), log out.
+                throw new Error("Failed to fetch profile, token might be invalid.");
             }
             
-            const profile: UserProfile = {
-                _id: decoded.userId,
-                name: decoded.name || 'User',
-                email: decoded.email,
-                isAdmin: isUserAdmin,
-                devices: devices,
-                createdAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : new Date().toISOString(),
-                photoURL: '' 
-            };
-            
-            setUser(profile);
+            const profileData: UserProfile = await response.json();
+
+            setUser(profileData);
             setToken(tokenToVerify);
-            setIsAdmin(isUserAdmin);
+            setIsAdmin(profileData.isAdmin === true);
 
         } catch (error) {
-            console.error('Profile fetch or token validation failed:', error);
-            logout();
+            console.error('Profile fetch failed:', error);
+            logout(); // Critical: Log out user if token is invalid or API fails
         }
     }, [logout]);
     
@@ -118,11 +92,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
         const isHomePage = pathname === '/';
         
-        // If user is NOT logged in and is on a protected page, redirect to login
         if (!user && !isAuthPage && !isHomePage) {
             router.replace('/login');
         }
-    }, [user, isLoading, pathname, router]);
+
+        // If user is logged in and on an auth page, redirect to their dashboard
+        if (user && isAuthPage) {
+            router.replace(isAdmin ? '/dashboard/admin' : '/dashboard');
+        }
+
+    }, [user, isAdmin, isLoading, pathname, router]);
 
     const login = async (email: string, password: string): Promise<boolean> => {
         setIsLoading(true);
@@ -141,9 +120,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 await fetchUserProfile(data.token);
 
                 // After fetching profile, manually redirect based on admin status
-                const decoded: UserPayload = jwtDecode(data.token);
-                const isUserAdmin = decoded.isAdmin === true;
-                router.replace(isUserAdmin ? '/dashboard/admin' : '/dashboard');
+                // We read isAdmin directly from the fetched profile, not the state,
+                // as state update might be asynchronous.
+                const profileResponse = await fetch(`${API_URL}/user/profile`, {
+                    headers: { 'Authorization': `Bearer ${data.token}` }
+                });
+                const profile: UserProfile = await profileResponse.json();
+
+                router.replace(profile.isAdmin ? '/dashboard/admin' : '/dashboard');
 
                 return true;
             }
