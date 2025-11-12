@@ -49,15 +49,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        // Force a full reload to clear all state and redirect to login
         if (typeof window !== 'undefined') {
             window.location.href = '/login';
         }
     }, []);
 
-    const fetchUserProfile = useCallback(async (currentToken: string) => {
+    const fetchUserProfile = useCallback(async (tokenToVerify: string) => {
         try {
-            const decoded: UserPayload = jwtDecode(currentToken);
+            const decoded: UserPayload = jwtDecode(tokenToVerify);
             if (decoded.exp && decoded.exp * 1000 < Date.now()) {
                 throw new Error("Token expired");
             }
@@ -65,7 +64,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             const isUserAdmin = decoded.isAdmin === true;
 
             const devicesResponse = await fetch(`${API_URL}/user/devices`, {
-                headers: { 'Authorization': `Bearer ${currentToken}` }
+                headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
 
             let devices: string[] = [];
@@ -77,7 +76,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             } else {
                 console.warn('Could not fetch user devices.');
             }
-
+            
             const profile: UserProfile = {
                 _id: decoded.userId,
                 name: decoded.name || 'User',
@@ -87,9 +86,9 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 createdAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : new Date().toISOString(),
                 photoURL: '' 
             };
-
+            
             setUser(profile);
-            setToken(currentToken);
+            setToken(tokenToVerify);
             setIsAdmin(isUserAdmin);
 
         } catch (error) {
@@ -119,18 +118,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
         const isHomePage = pathname === '/';
         
-        if (user) {
-            // If user is logged in
-            if (isAuthPage || isHomePage) {
-                router.replace(isAdmin ? '/dashboard/admin' : '/dashboard');
-            }
-        } else {
-            // If user is not logged in
-            if (!isAuthPage && !isHomePage) {
-                 router.replace('/login');
-            }
+        // If user is NOT logged in and is on a protected page, redirect to login
+        if (!user && !isAuthPage && !isHomePage) {
+            router.replace('/login');
         }
-    }, [user, isAdmin, isLoading, pathname, router]);
+    }, [user, isLoading, pathname, router]);
 
     const login = async (email: string, password: string): Promise<boolean> => {
         setIsLoading(true);
@@ -141,15 +133,18 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 body: JSON.stringify({ email, password }),
             });
 
-            if (!response.ok) {
-                throw new Error('Login failed');
-            }
+            if (!response.ok) throw new Error('Login failed');
             
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('token', data.token);
                 await fetchUserProfile(data.token);
-                // The useEffect hook will handle redirection after state update.
+
+                // After fetching profile, manually redirect based on admin status
+                const decoded: UserPayload = jwtDecode(data.token);
+                const isUserAdmin = decoded.isAdmin === true;
+                router.replace(isUserAdmin ? '/dashboard/admin' : '/dashboard');
+
                 return true;
             }
              throw new Error('No token received');
@@ -169,8 +164,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         login, 
         logout, 
         fetchUserProfile: () => {
-            const token = localStorage.getItem('token');
-            if (token) fetchUserProfile(token);
+            const currentToken = localStorage.getItem('token');
+            if (currentToken) {
+                return fetchUserProfile(currentToken);
+            }
+            return Promise.resolve();
         }
     };
 
