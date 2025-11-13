@@ -13,6 +13,8 @@ interface UserPayload {
     email: string;
     iat: number;
     exp: number;
+    // We expect `isAdmin` to be in the token for immediate role-checking
+    isAdmin?: boolean; 
 }
 
 export interface UserProfile {
@@ -50,7 +52,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        // Redirect to login only if not already on a public page
         if (typeof window !== 'undefined' && !['/login', '/register', '/reset-password', '/'].includes(pathname)) {
            router.replace('/login');
         }
@@ -61,40 +62,25 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             logout();
             return;
         }
-    
+
         try {
-            // Directly fetch the user's assigned devices
-            const devicesResponse = await fetch(`${API_URL}/api/user/devices`, {
+            const response = await fetch(`${API_URL}/api/user/profile`, {
                 headers: { 'Authorization': `Bearer ${tokenToVerify}` }
             });
-    
-            if (!devicesResponse.ok) {
-                 // If fetching devices fails, token might be bad, so log out
-                throw new Error("Failed to fetch user devices, token might be invalid.");
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`Profile fetch failed with status ${response.status}: ${errorBody}`);
+                throw new Error("Failed to fetch profile, token might be invalid.");
             }
             
-            const devices: { uid: string }[] = await devicesResponse.json();
-            const deviceUIDs = devices.map(d => d.uid);
+            const profileData: UserProfile = await response.json();
             
-            // Decode token to get user info like email and ID
-            const decoded: UserPayload = jwtDecode(tokenToVerify);
-
-            // Reconstruct a partial but functional user profile on the client
-            const isUserAdmin = decoded.email === 'shohidmax@gmail.com';
-
-            const partialProfile: UserProfile = {
-                _id: decoded.userId,
-                email: decoded.email,
-                name: 'User', // Name is not in token, provide a default
-                isAdmin: isUserAdmin,
-                devices: deviceUIDs,
-                createdAt: new Date(decoded.iat * 1000).toISOString(), // Estimate creation from 'issued at' time
-            };
-            
-            setUser(partialProfile);
+            // Set all states together to avoid race conditions
+            setUser(profileData);
+            setIsAdmin(profileData.isAdmin);
             setToken(tokenToVerify);
-            setIsAdmin(isUserAdmin);
-    
+
         } catch (error) {
             console.error('Error during profile fetch:', error);
             logout(); // If any part fails, logout for safety
@@ -107,6 +93,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (tokenFromStorage) {
             await fetchUserProfile(tokenFromStorage);
+        } else {
+            // If no token, no need to do anything, just stop loading
         }
         setIsLoading(false);
     }, [fetchUserProfile]);
@@ -145,18 +133,28 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('token', data.token);
+                // After setting token, fetch profile to get full user data and role
                 await fetchUserProfile(data.token);
                 
-                // After profile is fetched, determine where to redirect
+                // fetchUserProfile sets isAdmin state, so we can now use it.
                 const decoded: UserPayload = jwtDecode(data.token);
-                const isUserAdmin = decoded.email === 'shohidmax@gmail.com';
-                router.replace(isUserAdmin ? '/dashboard/admin' : '/dashboard');
+                const userIsAdmin = decoded.email === 'shohidmax@gmail.com'; // Fallback check
+                
+                // We fetch the profile again to be sure
+                const profileResponse = await fetch(`${API_URL}/api/user/profile`, {
+                    headers: { 'Authorization': `Bearer ${data.token}` }
+                });
+                const finalProfile: UserProfile = await profileResponse.json();
+
+                router.replace(finalProfile.isAdmin ? '/dashboard/admin' : '/dashboard');
 
                 return true;
             }
              throw new Error('No token received');
         } catch (error) {
             console.error('Login error:', error);
+            // Ensure state is clean after a failed login
+            logout();
             return false;
         } finally {
             setIsLoading(false);
