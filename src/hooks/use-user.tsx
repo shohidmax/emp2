@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 
 const API_URL = 'https://espserver3.onrender.com';
-const ADMIN_EMAIL = 'shohidmax@gmail.com'; // Your admin email
 
 interface JwtPayload {
     userId: string;
@@ -33,7 +32,7 @@ interface UserContextType {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<boolean>;
     logout: () => void;
-    fetchUserProfile: () => Promise<void>; 
+    fetchUserProfile: (token: string) => Promise<UserProfile | null>; 
 }
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -53,37 +52,38 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        setIsLoading(false); 
+        setIsLoading(false); // Set loading to false after state is cleared
         router.replace('/login');
     }, [router]);
 
-    const setUserAndAdminStatus = useCallback((currentToken: string) => {
+    const fetchUserProfile = useCallback(async (currentToken: string): Promise<UserProfile | null> => {
         try {
-            const decoded: JwtPayload = jwtDecode(currentToken);
-            const userIsAdmin = decoded.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            const response = await fetch(`${API_URL}/api/user/profile`, {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
 
-            const profile: UserProfile = {
-                _id: decoded.userId,
-                email: decoded.email,
-                name: decoded.name || decoded.email.split('@')[0],
-                isAdmin: userIsAdmin,
-                devices: user?.devices || [], // Keep existing devices if re-authenticating
-                createdAt: new Date(decoded.iat * 1000).toISOString(),
-            };
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`Profile fetch failed with status ${response.status}: ${errorBody}`);
+                throw new Error("Failed to fetch profile, token might be invalid.");
+            }
             
-            setUser(profile);
+            const profileData: UserProfile = await response.json();
+            
+            setUser(profileData);
+            setIsAdmin(profileData.isAdmin);
             setToken(currentToken);
-            setIsAdmin(userIsAdmin);
-            return profile;
+
+            return profileData;
         } catch (error) {
-            console.error("Invalid token:", error);
+            console.error("Error fetching user profile:", error);
             logout();
             return null;
         }
-    }, [logout, user?.devices]);
+    }, [logout]);
+
 
     const initializeAuth = useCallback(async () => {
-        setIsLoading(true);
         const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (tokenFromStorage) {
@@ -92,7 +92,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 if (decoded.exp * 1000 < Date.now()) {
                     logout();
                 } else {
-                    setUserAndAdminStatus(tokenFromStorage);
+                    // Token is valid, fetch full profile from backend
+                    await fetchUserProfile(tokenFromStorage);
                 }
             } catch (error) {
                 console.error("Invalid token during initialization:", error);
@@ -100,7 +101,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             }
         }
         setIsLoading(false);
-    }, [logout, setUserAndAdminStatus]);
+    }, [logout, fetchUserProfile]);
 
 
     useEffect(() => {
@@ -135,18 +136,23 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             }
             
             const data = await response.json();
+
             if (data.token) {
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', data.token);
                 }
-                const profile = setUserAndAdminStatus(data.token);
+                // After getting token, fetch the full user profile
+                const profile = await fetchUserProfile(data.token);
+                
                 setIsLoading(false);
-                if(profile) {
+
+                if (profile) {
                     router.replace(profile.isAdmin ? '/dashboard/admin' : '/dashboard');
                     return true;
                 }
                 return false;
             }
+
             throw new Error('No token received');
         } catch (error) {
             console.error('Login error:', error);
@@ -156,13 +162,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
     
-    const fetchUserProfile = async () => {
-         const currentToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-         if (currentToken && !user) {
-            setUserAndAdminStatus(currentToken);
-         }
-    };
-    
     const value = { 
         user, 
         token, 
@@ -170,7 +169,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading, 
         login, 
         logout, 
-        fetchUserProfile
+        // We pass a wrapper to avoid exposing the internal fetchUserProfile directly if it's not needed by components
+        fetchUserProfile: (token: string) => fetchUserProfile(token),
     };
 
     return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
