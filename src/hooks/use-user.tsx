@@ -53,16 +53,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-        setIsLoading(false);
-        
-        const isProtectedPage = pathname.startsWith('/dashboard');
-        if (isProtectedPage && typeof window !== 'undefined') {
-           router.replace('/login');
-        }
-    }, [router, pathname]);
+        setIsLoading(false); // Done loading
+        router.replace('/login');
+    }, [router]);
 
-
-    // This function sets user state from a valid token.
     const setUserFromToken = useCallback((currentToken: string) => {
         try {
             const decoded: JwtPayload = jwtDecode(currentToken);
@@ -73,7 +67,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 email: decoded.email,
                 name: decoded.name || decoded.email.split('@')[0],
                 isAdmin: userIsAdmin,
-                devices: [], // This can be populated later by specific components if needed
+                devices: [], 
                 createdAt: new Date(decoded.iat * 1000).toISOString(),
             };
 
@@ -90,6 +84,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
 
     const initializeAuth = useCallback(async () => {
+        setIsLoading(true);
         const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (tokenFromStorage) {
@@ -117,9 +112,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         if (isLoading) return;
 
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
-        const isHomePage = pathname === '/';
         
-        if (!user && !isAuthPage && !isHomePage) {
+        if (!user && !isAuthPage) {
             router.replace('/login');
         } 
         else if (user && isAuthPage) {
@@ -147,8 +141,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', data.token);
                 }
-                
-                // Directly set user from the new token
                 const success = setUserFromToken(data.token);
                 setIsLoading(false);
                 return success;
@@ -162,14 +154,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
     
-    
-    // This function can be used to manually re-fetch data if ever needed,
-    // but the core auth flow no longer depends on it.
+    // This function can be used to manually re-fetch data if ever needed
     const fetchUserProfile = async () => {
          const currentToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-         if (currentToken) {
-            // In a more complex app, you might fetch non-critical profile data here.
-            // For now, we just ensure the user state is set from the token.
+         if (currentToken && !user) {
+            // Only set from token if user is not already set
             setUserFromToken(currentToken);
          }
     }
