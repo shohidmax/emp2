@@ -35,7 +35,7 @@ interface UserContextType {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<boolean>;
     logout: () => void;
-    fetchUserProfile: () => Promise<void>; // Kept for compatibility, but now a no-op
+    fetchUserProfile: () => Promise<void>; 
 }
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -56,7 +56,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setToken(null);
         setIsAdmin(false);
         setIsLoading(false);
-        // Only redirect if not on a public page
+        
         if (typeof window !== 'undefined' && !['/login', '/register', '/reset-password', '/'].includes(pathname)) {
            router.replace('/login');
         }
@@ -68,7 +68,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
             if (decoded.exp * 1000 < Date.now()) {
                 logout();
-                return;
+                return { userIsAdmin: false };
             }
 
             const userIsAdmin = decoded.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -85,6 +85,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(profile);
             setToken(tokenToVerify);
             setIsAdmin(userIsAdmin);
+            
             return { userIsAdmin };
         } catch (error) {
             console.error('Error setting up user from token:', error);
@@ -101,7 +102,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             setupUserFromToken(tokenFromStorage);
         }
         
-        // This is crucial: set loading to false after attempting to initialize.
         setIsLoading(false);
     }, [setupUserFromToken]);
 
@@ -109,18 +109,15 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         initializeAuth();
     }, [initializeAuth]);
     
-    // This effect handles redirection logic after loading is complete.
     useEffect(() => {
         if (isLoading) return;
 
         const isAuthPage = ['/login', '/register', '/reset-password'].includes(pathname);
         const isHomePage = pathname === '/';
         
-        // If not logged in and not on a public page, redirect to login
         if (!user && !isAuthPage && !isHomePage) {
             router.replace('/login');
         } 
-        // If logged in and on an auth page, redirect to the appropriate dashboard
         else if (user && isAuthPage) {
             router.replace(isAdmin ? '/dashboard/admin' : '/dashboard');
         }
@@ -146,10 +143,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', data.token);
                 }
-                // Setup user and get admin status directly after login
                 const { userIsAdmin } = setupUserFromToken(data.token);
                 
-                // Manually redirect after successful login
                 router.replace(userIsAdmin ? '/dashboard/admin' : '/dashboard');
                 
                 return true;
@@ -160,15 +155,18 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             logout();
             return false;
         } finally {
-            // Set loading to false after the login attempt is complete
             setIsLoading(false);
         }
     };
     
-    // This function is now effectively a no-op but kept for compatibility.
-    // It prevents errors on pages that might still call it.
     const fetchUserProfile = async () => {
-       console.log("fetchUserProfile is deprecated. User profile is now set from token.");
+       // This function is now effectively a no-op for initial auth,
+       // but can be used to re-fetch/sync profile if needed later.
+       const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+       if (tokenFromStorage) {
+            console.log("Re-syncing user profile from token.");
+            setupUserFromToken(tokenFromStorage);
+       }
        return Promise.resolve();
     };
     
