@@ -3,15 +3,8 @@
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
 const API_URL = 'https://esp-web-server2.onrender.com';
-
-interface DecodedToken extends JwtPayload {
-    userId: string;
-    email: string;
-    name?: string;
-}
 
 export interface UserProfile {
     _id: string;
@@ -63,7 +56,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         if (!currentToken) {
             throw new Error("No token found");
         }
-
+        setIsLoading(true);
         try {
             const response = await fetch(`${API_URL}/api/user/profile`, {
                 headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -80,8 +73,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         } catch (error) {
              console.error("Error fetching full user profile:", error);
-             logout(); // Logout on profile fetch failure
-             throw error; // Re-throw to inform caller
+             logout(); 
+             throw error; 
+        } finally {
+            setIsLoading(false);
         }
     }, [logout]);
     
@@ -94,7 +89,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 await fetchUserProfile();
             } catch (error) {
                 console.error("Initialization failed, logging out:", error);
-                // fetchUserProfile already handles logout on failure
             }
         }
         setIsLoading(false);
@@ -103,7 +97,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         initializeAuth();
-    }, []); // Empty dependency array to run only once on mount
+    }, []); 
 
     useEffect(() => {
         if (isLoading) return;
@@ -139,7 +133,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', data.token);
                 }
-                await fetchUserProfile(); // Fetch full profile after successful login
+                await fetchUserProfile();
                 return true;
             }
 
@@ -147,7 +141,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             console.error('Login error:', error);
             logout();
-            throw error; // Re-throw the error so the form can catch it
+            throw error;
         } finally {
             setIsLoading(false);
         }
