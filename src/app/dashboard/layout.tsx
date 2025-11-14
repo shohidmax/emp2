@@ -121,10 +121,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {isAdmin && (
                 <SidebarGroup>
                     <SidebarMenuItem>
-                        <SidebarMenuButton asChild tooltip="All Devices" isActive={pathname.startsWith('/dashboard/admin/devices')}>
+                        <SidebarMenuButton asChild tooltip="All Devices" isActive={pathname === '/dashboard/admin/devices'}>
                         <Link href="/dashboard/admin/devices">
                             <HardDrive />
                             <span>All Devices</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild tooltip="Device List" isActive={pathname.startsWith('/dashboard/admin/devices')}>
+                        <Link href="/dashboard/admin/devices">
+                            <List />
+                            <span>Device List</span>
                         </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
