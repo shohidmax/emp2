@@ -53,7 +53,15 @@ export default function DeviceListPage() {
   useEffect(() => {
     const storedPins = localStorage.getItem('pinnedDevices');
     if (storedPins) {
-      setPinnedDevices(new Set(JSON.parse(storedPins)));
+      try {
+        const parsedPins = JSON.parse(storedPins);
+        if (Array.isArray(parsedPins)) {
+            setPinnedDevices(new Set(parsedPins));
+        }
+      } catch (e) {
+        console.error("Failed to parse pinned devices from localStorage", e);
+        localStorage.removeItem('pinnedDevices');
+      }
     }
   }, []);
 
@@ -124,7 +132,8 @@ export default function DeviceListPage() {
             const searchLower = searchQuery.toLowerCase();
             const nameMatch = device.name?.toLowerCase().includes(searchLower);
             const uidMatch = device.uid.toLowerCase().includes(searchLower);
-            return nameMatch || uidMatch;
+            const locationMatch = device.location?.toLowerCase().includes(searchLower);
+            return nameMatch || uidMatch || locationMatch;
         })
         .sort((a, b) => {
             const aIsPinned = pinnedDevices.has(a.uid);
@@ -137,6 +146,8 @@ export default function DeviceListPage() {
             if (b.lastSeen && a.lastSeen) {
                 return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
             }
+             if (b.lastSeen) return 1;
+             if (a.lastSeen) return -1;
             return 0;
         });
   }, [devices, pinnedDevices, searchQuery]);
@@ -166,7 +177,7 @@ export default function DeviceListPage() {
 
   if (isAdmin) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center">
+      <div className="flex min-h-[calc(100vh-10rem)] w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
         <p className="ml-2">Redirecting to Admin Device Management...</p>
       </div>
@@ -186,7 +197,7 @@ export default function DeviceListPage() {
                 <div className="relative w-full md:max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search by name or UID..."
+                        placeholder="Search by name, UID, location..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10"
@@ -231,7 +242,7 @@ export default function DeviceListPage() {
                 const isPinned = pinnedDevices.has(device.uid);
                 return (
                 <Link href={`/dashboard/device/${device.uid}`} key={device.uid} className="block group">
-                  <Card className="h-full transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
+                  <Card className="h-full flex flex-col transition-all duration-300 ease-in-out group-hover:shadow-primary/20 group-hover:shadow-lg group-hover:-translate-y-1">
                     <CardHeader className="relative">
                       <div className="absolute top-4 right-4 flex items-center gap-2">
                         <Tooltip>
@@ -247,7 +258,7 @@ export default function DeviceListPage() {
                             {device.status}
                         </div>
                       </div>
-                      <CardTitle className="text-primary pr-16">{device.name || 'Device'}</CardTitle>
+                      <CardTitle className="text-primary pr-16">{device.name || 'Unnamed Device'}</CardTitle>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div
@@ -264,7 +275,7 @@ export default function DeviceListPage() {
                       </Tooltip>
                        {device.location && <CardDescription className="text-xs pt-1">{device.location}</CardDescription>}
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3 flex-1 flex flex-col justify-end">
                        <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg">
                         <div className="flex items-center gap-2 font-medium text-sm"><Thermometer className="h-4 w-4 text-amber-500"/>Temperature</div>
                         <span className="text-xl font-bold text-amber-500">
@@ -298,3 +309,5 @@ export default function DeviceListPage() {
     </div>
   );
 }
+
+    
