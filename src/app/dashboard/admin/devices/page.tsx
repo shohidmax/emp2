@@ -260,10 +260,9 @@ export default function AdminDeviceManagerPage() {
                             <p className="text-xs text-muted-foreground">
                                 Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
                             </p>
-                             <Button asChild variant="outline" size="sm">
+                             <Button asChild variant="outline" size="icon" className="h-8 w-8">
                                 <Link href={`/dashboard/device/${device.uid}`}>
-                                    More
-                                    <ArrowRight className="ml-2 h-3 w-3" />
+                                    <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </Button>
                          </div>
@@ -279,6 +278,8 @@ export default function AdminDeviceManagerPage() {
     </div>
   );
 }
+
+    
 
     
 
