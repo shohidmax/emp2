@@ -1,10 +1,11 @@
 
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Edit, Save, X, User, Search, Copy, Pin } from 'lucide-react';
+import { TriangleAlert, Edit, Save, X, User, Search, Copy, Pin, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -255,10 +256,16 @@ export default function AdminDeviceManagerPage() {
                                 )}
                             </div>
                         </CardContent>
-                         <div className="p-6 pt-4 border-t">
+                         <div className="p-4 pt-4 border-t flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">
                                 Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
                             </p>
+                             <Button asChild variant="outline" size="sm">
+                                <Link href={`/dashboard/device/${device.uid}`}>
+                                    More
+                                    <ArrowRight className="ml-2 h-3 w-3" />
+                                </Link>
+                            </Button>
                          </div>
                     </Card>
                 ))}
@@ -272,5 +279,7 @@ export default function AdminDeviceManagerPage() {
     </div>
   );
 }
+
+    
 
     
