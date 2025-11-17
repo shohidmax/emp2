@@ -1,21 +1,24 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TriangleAlert, Edit, Save, X, User } from 'lucide-react';
+import { TriangleAlert, Edit, Save, X, User, Search, Copy, Pin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/use-user';
+import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 const API_BASE_URL = 'https://esp32server2.maxapi.esp32.site/api';
 
 interface DeviceOwner {
+    _id: string;
     name: string;
     email: string;
 }
@@ -34,6 +37,8 @@ export default function AdminDeviceManagerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingDevice, setEditingDevice] = useState<AdminDevice | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const { token } = useUser();
 
@@ -53,7 +58,14 @@ export default function AdminDeviceManagerPage() {
         throw new Error(`Failed to fetch devices: ${response.statusText}`);
       }
       const data = await response.json();
-      setDevices(data.sort((a: AdminDevice, b: AdminDevice) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()));
+      setDevices(data.sort((a: AdminDevice, b: AdminDevice) => {
+        if (b.lastSeen && a.lastSeen) {
+            return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
+        }
+        if (b.lastSeen) return 1;
+        if (a.lastSeen) return -1;
+        return 0;
+      }));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -68,13 +80,20 @@ export default function AdminDeviceManagerPage() {
   const handleEdit = (device: AdminDevice) => {
     setEditingDevice({ ...device });
   };
-
-  const handleCancel = () => {
-    setEditingDevice(null);
+  
+  const handleCopy = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied to clipboard!',
+      description: `UID: ${text}`,
+    });
   };
 
   const handleSave = async () => {
     if (!editingDevice || !token) return;
+    setIsSaving(true);
     try {
       const { uid, name, location } = editingDevice;
       const response = await fetch(`${API_BASE_URL}/device/${uid}`, {
@@ -91,14 +110,32 @@ export default function AdminDeviceManagerPage() {
       fetchDevices(); // Refresh list
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+        setIsSaving(false);
     }
   };
+  
+  const filteredDevices = useMemo(() => {
+      return devices.filter(device => {
+            if (!searchQuery) return true;
+            const searchLower = searchQuery.toLowerCase();
+            const nameMatch = device.name?.toLowerCase().includes(searchLower);
+            const uidMatch = device.uid.toLowerCase().includes(searchLower);
+            const locationMatch = device.location?.toLowerCase().includes(searchLower);
+            const ownerMatch = device.owners.some(o => o.name?.toLowerCase().includes(searchLower) || o.email?.toLowerCase().includes(searchLower));
+            return nameMatch || uidMatch || locationMatch || ownerMatch;
+        });
+  }, [devices, searchQuery]);
 
   if (loading) {
     return <div className="space-y-4">
       <Skeleton className="h-10 w-1/3" />
       <Skeleton className="h-8 w-1/2" />
-      <Card><CardContent className="p-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, index) => (
+             <Card key={index}><CardContent className="p-6"><Skeleton className="h-48 w-full" /></CardContent></Card>
+        ))}
+      </div>
     </div>;
   }
 
@@ -114,91 +151,126 @@ export default function AdminDeviceManagerPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Device Management</h1>
-        <p className="text-muted-foreground">View, edit, and manage all registered devices and their owners.</p>
-      </div>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>UID</TableHead>
-                <TableHead>Device Name</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Owners</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {devices.map(device => (
-                <TableRow key={device.uid}>
-                  <TableCell className="font-mono text-xs">{device.uid}</TableCell>
-                  <TableCell>
-                    {editingDevice?.uid === device.uid ? (
-                      <Input
-                        value={editingDevice.name || ''}
-                        onChange={e => setEditingDevice({ ...editingDevice, name: e.target.value })}
-                        className="h-8"
-                      />
-                    ) : (
-                      device.name || <span className="text-muted-foreground">Not set</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingDevice?.uid === device.uid ? (
-                      <Input
-                        value={editingDevice.location || ''}
-                        onChange={e => setEditingDevice({ ...editingDevice, location: e.target.value })}
-                        className="h-8"
-                      />
-                    ) : (
-                      device.location || <span className="text-muted-foreground">Not set</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                     <Badge variant={device.status === 'online' ? 'default' : 'secondary'} className={device.status === 'online' ? 'bg-green-500' : ''}>
-                        {device.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {device.owners.length > 0 ? (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-2">
-                                        <User className="h-4 w-4"/>
-                                        <span>{device.owners.length}</span>
+        <Dialog open={!!editingDevice} onOpenChange={(isOpen) => !isOpen && setEditingDevice(null)}>
+            <DialogContent>
+                 <DialogHeader>
+                    <DialogTitle>Edit Device: {editingDevice?.name || editingDevice?.uid}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Name</Label>
+                        <Input id="name" value={editingDevice?.name || ''} onChange={(e) => setEditingDevice(d => d ? {...d, name: e.target.value} : null)} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="location" className="text-right">Location</Label>
+                        <Input id="location" value={editingDevice?.location || ''} onChange={(e) => setEditingDevice(d => d ? {...d, location: e.target.value} : null)} className="col-span-3" />
+                    </div>
+                </div>
+                 <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving && <X className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Changes
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+                <h1 className="text-3xl font-bold">Device Management</h1>
+                <p className="text-muted-foreground">View, edit, and manage all registered devices and their owners.</p>
+            </div>
+             <div className="relative w-full md:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search devices..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+        </div>
+
+        <TooltipProvider>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredDevices.map(device => (
+                    <Card key={device.uid} className="h-full flex flex-col transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:shadow-lg hover:-translate-y-1">
+                        <CardHeader className="relative pb-4">
+                             <div className="absolute top-4 right-4 flex items-center gap-2">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => handleEdit(device)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Edit Device</p></TooltipContent>
+                                </Tooltip>
+                                <div className={cn('flex items-center gap-1.5 text-xs font-semibold', 
+                                    device.status === 'online' ? 'text-green-500' : 'text-muted-foreground'
+                                )}>
+                                    <span className={cn('h-2 w-2 rounded-full', 
+                                        device.status === 'online' ? 'bg-green-500' : 'bg-muted-foreground'
+                                    )}></span>
+                                    {device.status}
+                                </div>
+                            </div>
+
+                            <CardTitle className="text-xl font-bold text-primary pr-20">{device.name || 'Unnamed Device'}</CardTitle>
+                             <div className="flex items-center gap-2">
+                                <CardDescription className="font-mono text-xs">{device.uid}</CardDescription>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                    <button onClick={(e) => handleCopy(e, device.uid)} className='text-muted-foreground hover:text-foreground'>
+                                        <Copy className="h-3 w-3" />
+                                    </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Copy UID</p></TooltipContent>
+                                </Tooltip>
+                            </div>
+                            {device.location && <CardDescription className="text-sm pt-1">{device.location}</CardDescription>}
+                        </CardHeader>
+                        <CardContent className="space-y-3 flex-1 flex flex-col justify-end">
+                             <div>
+                                <h4 className="text-sm font-medium mb-2">Owners</h4>
+                                {device.owners.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {device.owners.map(owner => (
+                                            <Tooltip key={owner._id}>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md text-xs">
+                                                        <User className="h-3 w-3" />
+                                                        <span className="flex-1 truncate">{owner.name}</span>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{owner.name}</p>
+                                                    <p className="text-muted-foreground">{owner.email}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        ))}
                                     </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <ul className="text-sm">
-                                        {device.owners.map(o => <li key={o.email}>{o.name} ({o.email})</li>)}
-                                    </ul>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ) : (
-                        <span className="text-muted-foreground">None</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingDevice?.uid === device.uid ? (
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSave}><Save className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => handleEdit(device)}><Edit className="h-4 w-4" /></Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">No owners assigned.</p>
+                                )}
+                            </div>
+                        </CardContent>
+                         <div className="p-6 pt-4 border-t">
+                            <p className="text-xs text-muted-foreground">
+                                Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
+                            </p>
+                         </div>
+                    </Card>
+                ))}
+                {filteredDevices.length === 0 && (
+                     <div className="col-span-full text-center text-muted-foreground h-40 flex items-center justify-center">
+                        <p>{searchQuery ? `No devices found for "${searchQuery}".` : "No devices found."}</p>
+                    </div>
+                )}
+            </div>
+        </TooltipProvider>
     </div>
   );
 }
+
+    
