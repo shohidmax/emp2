@@ -81,8 +81,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/40">
-          <div className="container px-4 md:px-6">
+        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/40 hidden">
+          <div className="container px-4 md:px-6 mx-auto">
             <div className="mx-auto flex max-w-5xl flex-col items-center space-y-4 text-center">
               <h2 className="font-bold text-3xl tracking-tighter sm:text-4xl md:text-5xl">Features</h2>
               <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
