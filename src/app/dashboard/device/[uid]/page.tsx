@@ -182,7 +182,9 @@ export default function DeviceDetailsPage() {
             timestamp: d.timestamp && !d.timestamp.startsWith('1970-') ? d.timestamp : null
         })).filter((d: any) => d.timestamp);
         
-        setDeviceHistory(processedData);
+        const sortedData = processedData.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setDeviceHistory(sortedData);
+
     } catch (e: any) {
         console.error('Failed to fetch data:', e);
         setError(e.message || 'Failed to fetch device data. The server might be offline. Please try again later.');
@@ -240,7 +242,7 @@ export default function DeviceDetailsPage() {
 
   const latestData = useMemo(() => {
     if (deviceHistory.length === 0) return null;
-    return [...deviceHistory].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    return deviceHistory[0];
   }, [deviceHistory]);
 
   const pieChartData = useMemo(() => {
@@ -580,7 +582,7 @@ export default function DeviceDetailsPage() {
           <CardContent className="h-[400px] p-0">
              {loading ? <div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={deviceHistory}>
+                <LineChart data={deviceHistory.slice().reverse()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <YAxis yAxisId="left" stroke="#fbbf24" label={{ value: '°C', angle: -90, position: 'insideLeft' }} />
