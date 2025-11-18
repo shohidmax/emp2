@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -108,7 +107,6 @@ const renderActiveShape = (props: any) => {
 
 
 export default function DeviceDetailsPage({ params }: { params: { uid: string } }) {
-  const router = useRouter();
   const uid = decodeURIComponent(params.uid as string);
   const { user, isAdmin, token } = useUser();
   const { toast } = useToast();
@@ -142,11 +140,10 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
         let historyResponse;
 
         if (isAdmin) {
-             // Admins use the public data-by-range endpoint, which doesn't require ownership.
-             const url = `${API_URL_BASE}/device/data-by-range`;
+             const url = `${API_URL_BASE}/api/device/data-by-range`;
              const body: any = { uid };
-             if (start) body.start = start;
-             if (end) body.end = end;
+             if (start) body.start = start.split('T')[0];
+             if (end) body.end = end.split('T')[0];
              
              historyResponse = await fetch(url, { 
                 method: 'POST',
@@ -155,8 +152,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
              });
 
         } else {
-            // Regular users use the protected endpoint that checks for ownership.
-            let url = `${API_URL_BASE}/user/device/${uid}/data`;
+            let url = `${API_URL_BASE}/api/user/device/${uid}/data`;
             const queryParams = new URLSearchParams();
             if (start) queryParams.append('start', start.split('T')[0]); // YYYY-MM-DD
             if (end) queryParams.append('end', end.split('T')[0]); // YYYY-MM-DD
@@ -197,8 +193,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
     if (!token || !uid) return;
      try {
         const headers = { 'Authorization': `Bearer ${token}` };
-        // Admin gets all devices, user gets their own
-        const infoUrl = isAdmin ? `${API_URL_BASE}/admin/devices` : `${API_URL_BASE}/user/devices`;
+        const infoUrl = isAdmin ? `${API_URL_BASE}/api/admin/devices` : `${API_URL_BASE}/api/user/devices`;
         const infoResponse = await fetch(infoUrl, { headers });
 
         if (infoResponse.ok) {
@@ -211,7 +206,6 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
             }
 
             if (!currentDevice) {
-                // If admin can't find it, it's truly not found
                 if (isAdmin) {
                     setError(`Device with UID ${uid} not found.`);
                 } else {
@@ -293,7 +287,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
     if (!token) return;
     setIsSaving(true);
     try {
-      const response = await fetch(`${API_URL_BASE}/device/${uid}`, {
+      const response = await fetch(`${API_URL_BASE}/api/device/${uid}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -442,7 +436,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
           <AlertTitle>Access Denied or Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-         <Button onClick={() => router.push('/dashboard')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Button>
+         <Button onClick={() => window.history.back()} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
       </div>
     );
   }
@@ -455,7 +449,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
               <AlertTitle>No Device Found</AlertTitle>
               <AlertDescription>No device could be found for this UID: {uid}.</AlertDescription>
             </Alert>
-            <Button onClick={() => router.push(isAdmin ? '/dashboard/admin/devices' : '/dashboard/devices')} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
+            <Button onClick={() => window.history.back()} className="mt-4" variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
         </div>
     );
   }
@@ -497,7 +491,7 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
 
 
       <div className="flex justify-between items-center">
-        <Button onClick={() => router.push(isAdmin ? '/dashboard/admin/devices' : '/dashboard/devices')} variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back to Device List</Button>
+        <Button onClick={() => window.history.back()} variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
         <div className="flex gap-2">
             {isAdmin && (
                 <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
@@ -672,3 +666,5 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
     </div>
   );
 }
+
+    
