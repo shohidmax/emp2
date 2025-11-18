@@ -107,8 +107,8 @@ const renderActiveShape = (props: any) => {
 };
 
 
-export default function DeviceDetailsPage() {
-  const params = useParams();
+export default function DeviceDetailsPage({ params: paramsProp }: { params: { uid: string } }) {
+  const params = use(Promise.resolve(paramsProp));
   const uid = decodeURIComponent(params.uid as string);
   const { user, isAdmin, token } = useUser();
   const { toast } = useToast();
@@ -541,6 +541,9 @@ export default function DeviceDetailsPage() {
 
 
       <Card>
+          <CardHeader>
+              <CardTitle>Device Last Data</CardTitle>
+          </CardHeader>
         <CardContent className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
           <div><p className="text-sm text-muted-foreground">Last Updated</p><p className="font-semibold text-lg">{latestData ? new Date(latestData.timestamp).toLocaleString() : 'N/A'}</p></div>
           <div><p className="text-sm text-muted-foreground">Temperature</p><p className="font-bold text-2xl text-amber-500">{latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData.temperature.toFixed(1)} °C` : 'N/A'}</p></div>
