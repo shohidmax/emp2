@@ -279,6 +279,26 @@ export default function DeviceDetailsPage({ params: paramsProp }: { params: { ui
     fetchDeviceHistory(startDate, endDate);
   };
 
+    const handleQuickFilter = (minutes: number) => {
+        const now = new Date();
+        const start = new Date(now.getTime() - minutes * 60 * 1000);
+        
+        const toLocalISOString = (date: Date) => {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, -1);
+            return localISOTime.substring(0, 16);
+        };
+
+        const endStr = toLocalISOString(now);
+        const startStr = toLocalISOString(start);
+        
+        setStartDate(startStr);
+        setEndDate(endStr);
+        setAppliedStartDate(startStr);
+        setAppliedEndDate(endStr);
+        fetchDeviceHistory(startStr, endStr);
+    };
+
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
@@ -533,16 +553,7 @@ export default function DeviceDetailsPage({ params: paramsProp }: { params: { ui
         </Alert>
       )}
       
-       {deviceHistory.length === 0 && !loading && (
-           <Alert>
-              <TriangleAlert className="h-4 w-4" />
-              <AlertTitle>No Data Available</AlertTitle>
-              <AlertDescription>There is no historical data for this device in the selected range. It may be a new device or there is an issue with data transmission.</AlertDescription>
-            </Alert>
-       )}
-
-
-      <Card>
+       <Card>
           <CardHeader>
               <CardTitle>Device Last Data</CardTitle>
           </CardHeader>
@@ -568,6 +579,14 @@ export default function DeviceDetailsPage({ params: paramsProp }: { params: { ui
           <CardTitle>Filter History</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+             <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(10)}>10m</Button>
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(30)}>30m</Button>
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(60)}>1h</Button>
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(6 * 60)}>6h</Button>
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(12 * 60)}>12h</Button>
+                <Button variant="outline" size="sm" onClick={() => handleQuickFilter(24 * 60)}>24h</Button>
+            </div>
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="grid w-full gap-1.5">
                 <label htmlFor="start-date" className="text-sm font-medium">Start Date/Time</label>
@@ -584,6 +603,14 @@ export default function DeviceDetailsPage({ params: paramsProp }: { params: { ui
           </div>
         </CardContent>
       </Card>
+      
+       {deviceHistory.length === 0 && !loading && (
+           <Alert>
+              <TriangleAlert className="h-4 w-4" />
+              <AlertTitle>No Data Available</AlertTitle>
+              <AlertDescription>There is no historical data for this device in the selected range. It may be a new device or there is an issue with data transmission.</AlertDescription>
+            </Alert>
+       )}
       
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-3" id="line-chart-container">
