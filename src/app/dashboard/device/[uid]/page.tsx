@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, use } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -107,7 +107,7 @@ const renderActiveShape = (props: any) => {
 };
 
 
-export default function DeviceDetailsPage() {
+export default function DeviceDetailsPage({ params: paramsProp }: { params: { uid: string } }) {
   const params = useParams();
   const uid = decodeURIComponent(params.uid as string);
   const { user, isAdmin, token } = useUser();
@@ -547,7 +547,16 @@ export default function DeviceDetailsPage() {
               <CardTitle>Device Last Data</CardTitle>
           </CardHeader>
         <CardContent className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-          <div><p className="text-sm text-muted-foreground">Last Updated</p><p className="font-semibold text-lg">{latestData ? new Date(latestData.timestamp).toLocaleString() : 'N/A'}</p></div>
+        <div>
+            <p className="text-sm text-muted-foreground">Last Updated</p>
+            {latestData ? (
+                <div className="font-semibold text-lg">
+                    <span>{new Date(latestData.timestamp).toLocaleDateString()}</span>
+                    <br/>
+                    <span className='text-base'>{new Date(latestData.timestamp).toLocaleTimeString()}</span>
+                </div>
+            ) : <p className="font-semibold text-lg">'N/A'</p>}
+        </div>
           <div><p className="text-sm text-muted-foreground">Temperature</p><p className="font-bold text-2xl text-amber-500">{latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData.temperature.toFixed(1)} °C` : 'N/A'}</p></div>
           <div><p className="text-sm text-muted-foreground">Water Level</p><p className="font-bold text-2xl text-sky-500">{latestData?.water_level !== undefined ? `${latestData.water_level.toFixed(2)} m` : 'N/A'}</p></div>
           <div><p className="text-sm text-muted-foreground">Daily Rainfall</p><p className="font-bold text-2xl text-emerald-500">{latestData?.rainfall !== undefined ? `${latestData.rainfall.toFixed(2)} mm` : 'N/A'}</p></div>
@@ -646,7 +655,12 @@ export default function DeviceDetailsPage() {
                 {deviceHistory.length > 0 ? (
                   deviceHistory.map((d, i) => (
                     <TableRow key={i}>
-                      <TableCell>{new Date(d.timestamp).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                            <span>{new Date(d.timestamp).toLocaleDateString()}</span>
+                            <span className="text-muted-foreground text-xs">{new Date(d.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center font-semibold text-amber-500">{d.temperature !== null ? d.temperature.toFixed(1) : 'N/A'}</TableCell>
                       <TableCell className="text-center font-semibold text-sky-500">{d.water_level.toFixed(2)}</TableCell>
                       <TableCell className="text-center font-semibold text-emerald-500">{d.rainfall.toFixed(2)}</TableCell>
@@ -673,3 +687,4 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
+
