@@ -107,9 +107,9 @@ const renderActiveShape = (props: any) => {
 };
 
 
-export default function DeviceDetailsPage({ params }: { params: { uid: string } }) {
-  const { uid: uidParam } = useParams();
-  const uid = decodeURIComponent(uidParam as string);
+export default function DeviceDetailsPage() {
+  const params = useParams();
+  const uid = decodeURIComponent(params.uid as string);
   const { user, isAdmin, token } = useUser();
   const { toast } = useToast();
 
@@ -234,11 +234,17 @@ export default function DeviceDetailsPage({ params }: { params: { uid: string } 
 
   useEffect(() => {
     if (token && uid) {
-        fetchDeviceInfo().then(() => {
-            fetchDeviceHistory();
-        })
+      const fetchData = () => {
+        fetchDeviceInfo();
+        fetchDeviceHistory(appliedStartDate, appliedEndDate);
+      };
+
+      fetchData(); // Initial fetch
+      const interval = setInterval(fetchData, 30000); // Poll every 30 seconds
+
+      return () => clearInterval(interval);
     }
-  }, [uid, token, fetchDeviceInfo, fetchDeviceHistory]);
+  }, [uid, token, fetchDeviceInfo, fetchDeviceHistory, appliedStartDate, appliedEndDate]);
 
   const latestData = useMemo(() => {
     if (deviceHistory.length === 0) return null;
