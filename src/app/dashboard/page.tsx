@@ -208,7 +208,7 @@ export default function DashboardPage() {
                                     {`Temp: ${device.data?.temperature !== null && device.data?.temperature !== undefined ? device.data.temperature.toFixed(1) + '°C' : 'N/A'}`}
                                 </p>
                             </div>
-                            <div className="ml-auto font-medium text-sm">{device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : 'N/A'}</div>
+                            <div className="ml-auto font-medium text-sm">{device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString('en-US') : 'N/A'}</div>
                         </div>
                       ))
                      }

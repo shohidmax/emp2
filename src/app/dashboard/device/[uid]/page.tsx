@@ -399,12 +399,12 @@ export default function DeviceDetailsPage() {
     
     (pdf as any).autoTable({
         body: [
-            ["Last Updated:", latestData ? new Date(latestData.timestamp).toLocaleString('en-GB') : 'N/A'],
+            ["Last Updated:", latestData ? new Date(latestData.timestamp).toLocaleString('en-US') : 'N/A'],
             ["Latest Temperature:", latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData?.temperature?.toFixed(1)} °C` : 'N/A'],
             ["Latest Water Level:", latestData?.water_level !== undefined ? `${latestData?.water_level?.toFixed(2)} m` : 'N/A'],
             ["Latest Rainfall:", latestData?.rainfall !== undefined ? `${latestData?.rainfall?.toFixed(2)} mm` : 'N/A'],
-            ["Filter Start:", appliedStartDate ? new Date(appliedStartDate).toLocaleString('en-GB') : 'All'],
-            ["Filter End:", appliedEndDate ? new Date(appliedEndDate).toLocaleString('en-GB') : 'All'],
+            ["Filter Start:", appliedStartDate ? new Date(appliedStartDate).toLocaleString('en-US') : 'All'],
+            ["Filter End:", appliedEndDate ? new Date(appliedEndDate).toLocaleString('en-US') : 'All'],
         ],
         startY: currentY,
         theme: 'plain',
@@ -460,7 +460,7 @@ export default function DeviceDetailsPage() {
     (pdf as any).autoTable({
         head: [['Timestamp', 'Temp (°C)', 'Water (m)', 'Rain (mm)']],
         body: deviceHistory.map(d => [
-            new Date(d.timestamp).toLocaleString('en-GB'),
+            new Date(d.timestamp).toLocaleString('en-US'),
             d.temperature !== null ? d.temperature.toFixed(1) : 'N/A',
             d.water_level.toFixed(2),
             d.rainfall.toFixed(2)
@@ -602,9 +602,7 @@ export default function DeviceDetailsPage() {
             <p className="text-sm text-muted-foreground">Last Updated</p>
             {latestData ? (
                 <div className="font-semibold text-lg">
-                    <span suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleDateString('en-GB')}</span>
-                    <br/>
-                    <span className='text-base' suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleTimeString()}</span>
+                    <span suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleString('en-US')}</span>
                 </div>
             ) : <p className="font-semibold text-lg">'N/A'</p>}
         </div>
@@ -742,8 +740,7 @@ export default function DeviceDetailsPage() {
                     <TableRow key={i}>
                       <TableCell>
                         <div className="flex flex-col">
-                            <span suppressHydrationWarning>{new Date(d.timestamp).toLocaleDateString('en-GB')}</span>
-                            <span className="text-muted-foreground text-xs" suppressHydrationWarning>{new Date(d.timestamp).toLocaleTimeString()}</span>
+                            <span suppressHydrationWarning>{new Date(d.timestamp).toLocaleString('en-US')}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-center font-semibold text-amber-500">{d.temperature !== null ? d.temperature.toFixed(1) : 'N/A'}</TableCell>

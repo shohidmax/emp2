@@ -311,7 +311,7 @@ export default function DeviceListPage() {
                       </div>
                     </CardContent>
                      <div className="p-6 pt-4">
-                         <p className="text-xs text-muted-foreground">Last updated: {device.lastSeen ? new Date(device.lastSeen).toLocaleString('en-GB') : 'Never'}</p>
+                         <p className="text-xs text-muted-foreground">Last updated: {device.lastSeen ? new Date(device.lastSeen).toLocaleString('en-US') : 'Never'}</p>
                      </div>
                   </Card>
                 </Link>
