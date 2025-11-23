@@ -9,7 +9,7 @@ export function formatToBDTime(dateString: string) {
   if (!dateString) return 'N/A';
   try {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
+    return date.toLocaleString('en-GB', {
       timeZone: 'Asia/Dhaka',
       year: 'numeric',
       month: '2-digit',
