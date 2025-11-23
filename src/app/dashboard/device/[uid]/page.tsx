@@ -257,7 +257,7 @@ export default function DeviceDetailsPage() {
 
   const latestData = useMemo(() => {
     if (deviceHistory.length === 0) return null;
-    return deviceHistory[deviceHistory.length - 1];
+    return deviceHistory[0];
   }, [deviceHistory]);
   
   const mapLocation = useMemo(() => {
@@ -743,7 +743,7 @@ export default function DeviceDetailsPage() {
               </TableHeader>
               <TableBody>
                 {deviceHistory.length > 0 ? (
-                  deviceHistory.slice().reverse().map((d, i) => (
+                  deviceHistory.map((d, i) => (
                     <TableRow key={i}>
                       <TableCell>
                         {formatToBDTime(d.timestamp)}
@@ -774,7 +774,3 @@ export default function DeviceDetailsPage() {
     </div>
   );
 }
-
-    
-
-    
