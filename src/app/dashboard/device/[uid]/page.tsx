@@ -208,7 +208,7 @@ export default function DeviceDetailsPage() {
         const infoResponse = await fetch(infoUrl, { headers });
 
         if (infoResponse.ok) {
-            const devices: DeviceInfo[] = await infoResponse.json();
+            const devices: any[] = await infoResponse.json();
             const currentDevice = devices.find(d => d.uid === uid);
             
             if(!currentDevice && !isAdmin) {
@@ -257,7 +257,7 @@ export default function DeviceDetailsPage() {
 
   const latestData = useMemo(() => {
     if (deviceHistory.length === 0) return null;
-    return deviceHistory[0];
+    return deviceHistory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [deviceHistory]);
   
   const mapLocation = useMemo(() => {
@@ -396,16 +396,23 @@ export default function DeviceDetailsPage() {
     pdf.setFont('helvetica', 'bold');
     pdf.text('Summary', pageMargin, currentY);
     currentY += 8;
+
+    const summaryBody = [
+        ["Last Updated:", latestData ? new Date(latestData.timestamp).toLocaleString('en-US') : 'N/A'],
+        ["Latest Temperature:", latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData?.temperature?.toFixed(1)} °C` : 'N/A'],
+        ["Latest Water Level:", latestData?.water_level !== undefined ? `${latestData?.water_level?.toFixed(2)} m` : 'N/A'],
+        ["Latest Rainfall:", latestData?.rainfall !== undefined ? `${latestData?.rainfall?.toFixed(2)} mm` : 'N/A'],
+        ["Filter Start:", appliedStartDate ? new Date(appliedStartDate).toLocaleString('en-US') : 'All'],
+        ["Filter End:", appliedEndDate ? new Date(appliedEndDate).toLocaleString('en-US') : 'All'],
+    ];
+
+    if (deviceInfo?.latitude && deviceInfo?.longitude) {
+        summaryBody.push(["Latitude:", deviceInfo.latitude.toString()]);
+        summaryBody.push(["Longitude:", deviceInfo.longitude.toString()]);
+    }
     
     (pdf as any).autoTable({
-        body: [
-            ["Last Updated:", latestData ? new Date(latestData.timestamp).toLocaleString('en-US') : 'N/A'],
-            ["Latest Temperature:", latestData?.temperature !== null && latestData?.temperature !== undefined ? `${latestData?.temperature?.toFixed(1)} °C` : 'N/A'],
-            ["Latest Water Level:", latestData?.water_level !== undefined ? `${latestData?.water_level?.toFixed(2)} m` : 'N/A'],
-            ["Latest Rainfall:", latestData?.rainfall !== undefined ? `${latestData?.rainfall?.toFixed(2)} mm` : 'N/A'],
-            ["Filter Start:", appliedStartDate ? new Date(appliedStartDate).toLocaleString('en-US') : 'All'],
-            ["Filter End:", appliedEndDate ? new Date(appliedEndDate).toLocaleString('en-US') : 'All'],
-        ],
+        body: summaryBody,
         startY: currentY,
         theme: 'plain',
         styles: { fontSize: 10, cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 0 } },
@@ -602,7 +609,8 @@ export default function DeviceDetailsPage() {
             <p className="text-sm text-muted-foreground">Last Updated</p>
             {latestData ? (
                 <div className="font-semibold text-lg">
-                    <span suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleString('en-US')}</span>
+                    <span suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleDateString('en-US')}</span>
+                    <span className='block text-base' suppressHydrationWarning>{new Date(latestData.timestamp).toLocaleTimeString('en-US')}</span>
                 </div>
             ) : <p className="font-semibold text-lg">'N/A'</p>}
         </div>
